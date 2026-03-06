@@ -9,18 +9,28 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@supabase/supabase-js": "^2.98.0",
+    "dom-to-image-more": "^3.7.2",
+    "framer-motion": "^12.35.0",
+    "leaflet": "^1.9.4",
+    "maplibre-gl": "^5.19.0",
     "next": "16.1.6",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-globe.gl": "^2.37.0",
+    "react-leaflet": "^5.0.0",
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
+    "@types/node": "^20.19.35",
+    "@types/react": "^19.2.14",
     "@types/react-dom": "^19",
+    "@types/three": "^0.183.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   }
 }
