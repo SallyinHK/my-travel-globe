@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MY TRAVEL GLOBE
 
-## Getting Started
+A cinematic, Web3D-powered personal travel footprint tracker. Built with a premium dark aesthetic, it turns your flight and travel records into an interactive 3D globe and a procedural digital passport.
 
-First, run the development server:
+[Live Demo](https://my-travel-globe.vercel.app/) 
 
-```bash
+Key Features
+
+* Cinematic 3D Globe: Powered by WebGL and `deck.gl`. Features smooth, calculated camera transitions between departure and arrival cities with custom arc rendering.
+* My Travel Passport: A procedural digital stamp collection. Uses a deterministic HSL hashing algorithm to ensure every city in the world gets a unique, mathematically locked color.
+* Panorama Poster Export: One-click high-resolution canvas merging to export your global footprint as a premium dark-theme poster.
+* Responsive & Polished UI: Features a mobile-optimized "pill-shaped" navigation bar, floating glass-morphism drawers, and buttery-smooth animations.
+* Bilingual Support: Seamless switching between English and Simplified Chinese without page reloads.
+
+Tech Stack
+
+* Framework: [Next.js](https://nextjs.org/) (App Router)
+* 3D Rendering: [deck.gl](https://deck.gl/) & Mapbox/MapLibre ecosystem
+* Database & Auth: [Supabase](https://supabase.com/)
+* Styling & Animation: Tailwind CSS, Framer Motion
+* Icons & Typography: Lucide React, Google Fonts (Inter, Permanent Marker)
+
+Getting Started
+
+Prerequisites
+You will need a Supabase project to handle authentication and data storage. Ensure you have a `trajectories` table set up with the corresponding schema.
+
+Installation
+
+1. Clone the repository and install dependencies:
+bash
+npm install
+# or yarn install / pnpm install / bun install
+
+2. Create a .env.local file in the root directory and add your Supabase credentials:
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+3. Run the development server:
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+# or yarn dev / pnpm dev / bun dev
+Open http://localhost:3000 with your browser to see the result.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Built with Vibe Coding:
+This project was developed focusing on product intuition, high-end aesthetics, and user experience, while leveraging AI (Cursor) as the ultimate coding partner.

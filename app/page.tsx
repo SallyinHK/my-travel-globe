@@ -4,6 +4,7 @@ import { Inter, Permanent_Marker } from "next/font/google";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@supabase/supabase-js";
+import { Plane, Train, Car, Ship, Footprints, List, Plus, Share2, Camera, Book, LogOut, X } from "lucide-react";
 
 import Map2D from "./components/Map2D";
 // @ts-ignore
@@ -39,7 +40,7 @@ const DICT: any = {
     modal_title: "绘制新轨迹",
     modal_start: "出发地", modal_start_ph: "输入地点以联想搜索...", modal_end: "目的地", modal_end_ph: "输入地点以联想搜索...",
     modal_date_start: "出发日期", modal_date_end: "到达日期",
-    modal_trans: "交通方式", trans_flight: "✈️ 飞机", trans_train: "🚄 火车/地铁", trans_drive: "🚗 自驾", trans_cruise: "🚢 游轮", trans_walk: "🚶 步行/骑行",
+    modal_trans: "交通方式", trans_flight: "飞机", trans_train: "火车/地铁", trans_drive: "自驾", trans_cruise: "游轮", trans_walk: "步行/骑行",
     modal_notes: "攻略与避雷", modal_notes_ph: "写点什么... 比如：避雷指南或者扫街路线...",
     modal_cancel: "取消", modal_save: "生成云端轨迹", modal_locating: "正在保存...",
     alert_not_found: "请从下拉列表中准确选择地点！",
@@ -64,7 +65,7 @@ const DICT: any = {
     modal_title: "NEW TRAJECTORY",
     modal_start: "FROM", modal_start_ph: "Type to search...", modal_end: "TO", modal_end_ph: "Type to search...",
     modal_date_start: "DEPARTURE", modal_date_end: "ARRIVAL",
-    modal_trans: "TRANSPORT", trans_flight: "✈️ Flight", trans_train: "🚄 Train", trans_drive: "🚗 Drive", trans_cruise: "🚢 Cruise", trans_walk: "🚶 Walk/Bike",
+    modal_trans: "TRANSPORT", trans_flight: "Flight", trans_train: "Train", trans_drive: "Drive", trans_cruise: "Cruise", trans_walk: "Walk/Bike",
     modal_notes: "NOTES & TIPS", modal_notes_ph: "Write something... e.g. food to avoid...",
     modal_cancel: "CANCEL", modal_save: "GENERATE ARC", modal_locating: "SAVING...",
     alert_not_found: "Please select accurate locations from dropdown!",
@@ -676,31 +677,17 @@ export default function Home() {
           </div>
         </aside>
 
-        <div className="md:hidden absolute bottom-6 left-6 right-6 z-20 flex justify-between items-stretch gap-1 bg-[#111]/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 shadow-2xl">
-           <button onClick={() => setMobileListDrawerOpen(true)} className="flex-1 py-3 text-center rounded-xl text-white hover:bg-white/10 text-[10px] font-bold tracking-widest transition-colors" aria-label={t.tripList}>
-             <span className="block text-lg mb-1">📋</span> {t.tripList}
-           </button>
-           <button onClick={handleOpenMapModal} className="flex-1 py-3 text-center rounded-xl bg-white text-black text-xs font-black tracking-widest">
-             <span className="block text-lg mb-1">➕</span> {t.btn_add}
-           </button>
-           <button onClick={handleShare} className="flex-1 py-3 text-center rounded-xl text-yellow-500 hover:bg-white/5 text-[10px] font-bold tracking-widest">
-             <span className="block text-lg mb-1">🔗</span> {t.btn_share}
-           </button>
-           <button onClick={() => { setSelectedExportIds(myTrajectories.map(t => t.id)); setExportModalOpen(true); }} className="flex-1 py-3 text-center rounded-xl text-white hover:bg-white/5 text-[10px] font-bold tracking-widest">
-             <span className="block text-lg mb-1">📸</span> {t.btn_export}
-           </button>
-           <button onClick={() => setIsPassportModalOpen(true)} className="flex-1 py-3 text-center rounded-xl text-white hover:bg-white/5 text-[10px] font-bold tracking-widest" aria-label={t.passportBtn}>
-             <span className="block text-lg mb-1">🛂</span> {t.passportBtn}
-           </button>
-           {user ? (
-             <button onClick={handleLogout} className="flex-1 py-3 text-center rounded-xl text-red-500 hover:bg-white/5 text-[10px] font-bold tracking-widest">
-               <span className="block text-lg mb-1 text-white">👤</span> {t.btn_logout}
-             </button>
-           ) : (
-             <button onClick={() => { setAuthMode("login"); setAuthModalOpen(true); }} className="flex-1 py-3 text-center rounded-xl text-gray-400 hover:bg-white/5 text-[10px] font-bold tracking-widest">
-               <span className="block text-lg mb-1">👤</span> {t.btn_login}
-             </button>
-           )}
+        <div className="md:hidden absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center justify-between gap-6 bg-[#111]/90 backdrop-blur-3xl border border-white/10 rounded-full px-6 py-4 shadow-[0_10px_40px_rgba(0,0,0,0.8)]">
+          <button onClick={() => setMobileListDrawerOpen(true)} className="text-white/70 hover:text-white transition-colors" aria-label={t.tripList}><List size={28} /></button>
+          <button onClick={handleOpenMapModal} className="text-black bg-white p-2 rounded-full hover:scale-105 transition-transform shadow-[0_0_15px_rgba(255,255,255,0.3)]"><Plus size={20} strokeWidth={3} /></button>
+          <button onClick={handleShare} className="text-yellow-500 hover:text-yellow-400 transition-colors"><Share2 size={28} /></button>
+          <button onClick={() => { setSelectedExportIds(myTrajectories.map(t => t.id)); setExportModalOpen(true); }} className="text-white/70 hover:text-white transition-colors"><Camera size={22} /></button>
+          <button onClick={() => setIsPassportModalOpen(true)} className="text-white/70 hover:text-white transition-colors" aria-label={t.passportBtn}><Book size={28} /></button>
+          {user ? (
+            <button onClick={handleLogout} className="text-red-400 hover:text-red-300 transition-colors"><LogOut size={28} /></button>
+          ) : (
+            <button onClick={() => { setAuthMode("login"); setAuthModalOpen(true); }} className="text-gray-400 hover:text-white transition-colors"><LogOut size={28} /></button>
+          )}
         </div>
 
         <AnimatePresence>
@@ -722,7 +709,7 @@ export default function Home() {
               >
                 <div className="flex items-center justify-between p-4 border-b border-white/10">
                   <h3 className="text-sm font-black tracking-widest text-white">{t.tripList}</h3>
-                  <button onClick={() => setMobileListDrawerOpen(false)} className="text-white/50 hover:text-white text-xl p-2">✕</button>
+                  <button onClick={() => setMobileListDrawerOpen(false)} className="text-white/50 hover:text-white p-2"><X size={20} /></button>
                 </div>
                 <ul className="overflow-y-auto p-3 space-y-2 max-h-[60vh]">
                   {visibleTrajectories.length === 0 ? (
@@ -789,16 +776,16 @@ export default function Home() {
         </div>
       </div>
 
-      <motion.div className={`fixed bottom-0 right-0 h-[70vh] md:h-full w-full md:w-[450px] bg-[#050505]/95 backdrop-blur-3xl border-t md:border-l md:border-t-0 border-white/10 p-6 md:p-10 text-white z-40 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] md:shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] rounded-t-[2rem] md:rounded-none ${selectedTrajectory ? "translate-y-0 md:translate-x-0" : "translate-y-full md:translate-y-0 md:translate-x-full"}`}>
+      <motion.div className={`fixed bottom-0 right-0 h-auto max-h-[55vh] md:h-full w-full md:w-[450px] bg-[#050505]/95 backdrop-blur-3xl border-t md:border-l md:border-t-0 border-white/10 p-6 md:p-10 text-white z-40 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] md:shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] rounded-t-[2rem] md:rounded-none ${selectedTrajectory ? "translate-y-0 md:translate-x-0" : "translate-y-full md:translate-y-0 md:translate-x-full"}`}>
         {selectedTrajectory && (
           <div className="h-full flex flex-col relative overflow-y-auto pr-2 pb-10 scrollbar-hide">
-            <button className="absolute -top-2 md:-top-2 -right-2 md:-right-2 text-gray-500 hover:text-white text-xl z-50 bg-[#050505] rounded-full p-2" onClick={() => setSelectedTrajectory(null)}>✕</button>
+            <button className="absolute -top-2 md:-top-2 -right-2 md:-right-2 text-gray-500 hover:text-white z-50 bg-[#050505] rounded-full p-2" onClick={() => setSelectedTrajectory(null)}><X size={20} /></button>
             <div className="flex items-center gap-3 mb-4 mt-2 md:mt-4">
-              <span className="text-xl">{selectedTrajectory.transport_mode === 'flight' ? '✈️' : selectedTrajectory.transport_mode === 'train' ? '🚄' : selectedTrajectory.transport_mode === 'drive' ? '🚗' : selectedTrajectory.transport_mode === 'cruise' ? '🚢' : '🚶'}</span>
+              {selectedTrajectory.transport_mode === "flight" ? <Plane size={20} className="text-white/90" /> : selectedTrajectory.transport_mode === "train" ? <Train size={20} className="text-white/90" /> : selectedTrajectory.transport_mode === "drive" ? <Car size={20} className="text-white/90" /> : selectedTrajectory.transport_mode === "cruise" ? <Ship size={20} className="text-white/90" /> : <Footprints size={20} className="text-white/90" />}
               <p className="text-xs font-mono text-yellow-500/70 tracking-widest">{t.drawer_notes}</p>
             </div>
             
-            <h2 className="text-2xl md:text-3xl font-black mb-6 md:mb-8 tracking-wider text-white uppercase leading-tight">
+            <h2 className="text-xl md:text-3xl font-black mb-6 md:mb-8 tracking-wider text-white uppercase leading-tight">
               {selectedTrajectory.start_name} <br/><span className="text-gray-600 text-xl md:text-2xl">→</span> {selectedTrajectory.end_name}
             </h2>
 
@@ -891,16 +878,20 @@ export default function Home() {
                   <label className="block text-[10px] font-mono text-gray-500 mb-2 tracking-wider">{t.modal_trans}</label>
                   <div className="grid grid-cols-5 gap-2">
                     {[
-                      { id: 'flight', label: t.trans_flight }, { id: 'train', label: t.trans_train }, 
-                      { id: 'drive', label: t.trans_drive }, { id: 'cruise', label: t.trans_cruise }, 
-                      { id: 'walk', label: t.trans_walk }
-                    ].map((mode) => (
-                      <button 
-                        key={mode.id} disabled={isSubmitting}
-                        onClick={() => setTransportMode(mode.id)}
-                        className={`py-2 md:py-3 rounded-xl text-xs font-medium border transition-all ${transportMode === mode.id ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400' : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}
+                      { id: "flight", label: t.trans_flight, Icon: Plane },
+                      { id: "train", label: t.trans_train, Icon: Train },
+                      { id: "drive", label: t.trans_drive, Icon: Car },
+                      { id: "cruise", label: t.trans_cruise, Icon: Ship },
+                      { id: "walk", label: t.trans_walk, Icon: Footprints },
+                    ].map(({ id, label, Icon }) => (
+                      <button
+                        key={id}
+                        disabled={isSubmitting}
+                        onClick={() => setTransportMode(id)}
+                        className={`py-2 md:py-3 rounded-xl text-xs font-medium border transition-all flex flex-col items-center gap-1 ${transportMode === id ? "bg-yellow-500/10 border-yellow-500/50 text-yellow-400" : "bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white"}`}
                       >
-                        <span className="block text-lg mb-1">{mode.label.split(' ')[0]}</span>
+                        <Icon size={20} strokeWidth={2} />
+                        <span className="block truncate w-full text-center">{label}</span>
                       </button>
                     ))}
                   </div>
@@ -961,13 +952,13 @@ export default function Home() {
         {isPassportModalOpen && (
           <motion.div initial={{ opacity: 0, backdropFilter: "blur(0px)" }} animate={{ opacity: 1, backdropFilter: "blur(20px)" }} exit={{ opacity: 0, backdropFilter: "blur(0px)" }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 px-4">
             <div className="relative w-full max-w-4xl max-h-[85vh] bg-[#111] border border-white/10 rounded-2xl shadow-2xl p-8 overflow-y-auto">
-              <button onClick={() => setIsPassportModalOpen(false)} className="absolute top-6 right-6 text-white/50 hover:text-white text-2xl transition-colors">✕</button>
+              <button onClick={() => setIsPassportModalOpen(false)} className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors p-2"><X size={22} /></button>
 
               <div className="text-center mb-10">
                 <h2 className="text-sm text-gray-400 font-mono tracking-[0.3em] uppercase mb-2">My Travel Passport</h2>
                 <p className="text-2xl font-bold text-white tracking-widest">{t.passportTitle}</p>
               </div>
-              <div className="flex flex-wrap justify-center gap-8 md:gap-12 p-4">
+              <div className="flex flex-wrap justify-center gap-4 md:gap-12 p-4">
                 {uniquePlaces.map((place: any, i: number) => {
                   const color = getCityColor(place.name);
                   const isFrequent = place.count > 1;
@@ -975,7 +966,7 @@ export default function Home() {
                   return (
                     <div
                       key={place.name}
-                      className="relative flex flex-col items-center justify-center w-36 h-36 rounded-full border-[2px] bg-[#111] transition-transform hover:scale-105 overflow-visible"
+                      className="relative flex flex-col items-center justify-center w-24 h-24 md:w-36 md:h-36 rounded-full border-[2px] bg-[#111] transition-transform hover:scale-105 overflow-visible"
                       style={{
                         borderColor: color,
                         color,
@@ -984,13 +975,13 @@ export default function Home() {
                           : `0 0 12px ${color}30`,
                       }}
                     >
-                      <span className="text-[10px] font-bold tracking-[0.2em] uppercase opacity-80">ARRIVED</span>
-                      <div className="w-full px-2 text-center">
-                        <span className={`text-xl font-black uppercase leading-tight block truncate ${markerFont.className}`} style={{ textShadow: `0 0 1px ${color}40` }}>
+                      <span className="text-[8px] md:text-[10px] font-bold tracking-[0.2em] uppercase opacity-80">ARRIVED</span>
+                      <div className="w-full px-1 md:px-2 text-center">
+                        <span className={`text-sm md:text-xl font-black uppercase leading-tight block truncate ${markerFont.className}`} style={{ textShadow: `0 0 1px ${color}40` }}>
                           {place.name}
                         </span>
                       </div>
-                      <span className="mt-2 text-[10px] font-mono tracking-tighter opacity-80">
+                      <span className="mt-2 text-[8px] md:text-[10px] font-mono tracking-tighter opacity-80">
                         {place.date}
                       </span>
                       {isFrequent && (
