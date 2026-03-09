@@ -53,7 +53,8 @@ const DICT: any = {
     btn_delete: "删除记录", modal_update: "更新轨迹",
     modal_export_title: "选择要在地图上展示并导出的轨迹", btn_confirm_export: "生成并下载图片",
     share_success: "🔗 专属地图链接已复制到剪贴板",
-    passportBtn: "我的旅行护照", passportTitle: "护照印章记录", emptyPassport: "还没有留下任何旅行印记..."
+    passportBtn: "我的旅行护照", passportTitle: "护照印章记录", emptyPassport: "还没有留下任何旅行印记...",
+    trips: "次飞行", tripList: "行程列表"
   },
   en: {
     loading: "SYNCING GLOBE DATA...", brand: "MY TRAVEL\nGLOBE",
@@ -77,7 +78,8 @@ const DICT: any = {
     btn_delete: "DELETE RECORD", modal_update: "UPDATE ARC",
     modal_export_title: "Select Trajectories to Export", btn_confirm_export: "GENERATE & DOWNLOAD",
     share_success: "🔗 Your exclusive map link copied to clipboard",
-    passportBtn: "MY TRAVEL PASSPORT", passportTitle: "PASSPORT STAMPS", emptyPassport: "No travel records yet..."
+    passportBtn: "MY TRAVEL PASSPORT", passportTitle: "PASSPORT STAMPS", emptyPassport: "No travel records yet...",
+    trips: "TRIPS", tripList: "Trip List"
   }
 };
 
@@ -181,6 +183,7 @@ export default function Home() {
 
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [isPassportModalOpen, setIsPassportModalOpen] = useState(false);
+  const [mobileListDrawerOpen, setMobileListDrawerOpen] = useState(false);
   const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
   const [isGeneratingScreenshot, setIsGeneratingScreenshot] = useState(false);
 
@@ -228,15 +231,44 @@ export default function Home() {
   const visibleTrajectories = isGeneratingScreenshot ? myTrajectories.filter(t => selectedExportIds.includes(t.id)) : myTrajectories;
 
   const uniquePlaces = useMemo(() => {
-    const placesMap = new Map();
-    visibleTrajectories.forEach(tr => {
+    const placesMap = new Map<string, { name: string; lat: number; lng: number; date: string; count: number }>();
+    if (!visibleTrajectories || visibleTrajectories.length === 0) return [];
+
+    visibleTrajectories.forEach((tr) => {
       if (!tr) return;
-      const dateObj = new Date(tr.created_at || Date.now());
-      const dateStr = dateObj.toISOString().split("T")[0]; // 2024-12-26
-      placesMap.set(tr.start_name, { name: tr.start_name, lat: tr.start_lat, lng: tr.start_lng, date: dateStr });
-      placesMap.set(tr.end_name, { name: tr.end_name, lat: tr.end_lat, lng: tr.end_lng, date: dateStr });
+      const rawDate = tr.start_date || tr.created_at || new Date().toISOString();
+      const dateStr = rawDate.toString().split("T")[0].slice(0, 10);
+
+      const process = (cityName: string, lat: number, lng: number) => {
+        if (!cityName) return;
+        const key = cityName.trim().toUpperCase();
+        const existing = placesMap.get(key);
+        if (existing) {
+          const nextDate = new Date(dateStr) > new Date(existing.date) ? dateStr : existing.date;
+          placesMap.set(key, {
+            ...existing,
+            count: existing.count + 1,
+            date: nextDate,
+          });
+        } else {
+          placesMap.set(key, {
+            name: cityName.trim(),
+            lat,
+            lng,
+            date: dateStr,
+            count: 1,
+          });
+        }
+      };
+      process(tr.start_name, tr.start_lat, tr.start_lng);
+      process(tr.end_name, tr.end_lat, tr.end_lng);
     });
-    return Array.from(placesMap.values());
+
+    const result = Array.from(placesMap.values());
+    if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+      console.log("Passport Debug:", result);
+    }
+    return result;
   }, [visibleTrajectories]);
 
   const layers = [
@@ -644,7 +676,10 @@ export default function Home() {
           </div>
         </aside>
 
-        <div className="md:hidden absolute bottom-6 left-6 right-6 z-20 flex justify-between bg-[#111]/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 shadow-2xl">
+        <div className="md:hidden absolute bottom-6 left-6 right-6 z-20 flex justify-between items-stretch gap-1 bg-[#111]/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 shadow-2xl">
+           <button onClick={() => setMobileListDrawerOpen(true)} className="flex-1 py-3 text-center rounded-xl text-white hover:bg-white/10 text-[10px] font-bold tracking-widest transition-colors" aria-label={t.tripList}>
+             <span className="block text-lg mb-1">📋</span> {t.tripList}
+           </button>
            <button onClick={handleOpenMapModal} className="flex-1 py-3 text-center rounded-xl bg-white text-black text-xs font-black tracking-widest">
              <span className="block text-lg mb-1">➕</span> {t.btn_add}
            </button>
@@ -654,16 +689,73 @@ export default function Home() {
            <button onClick={() => { setSelectedExportIds(myTrajectories.map(t => t.id)); setExportModalOpen(true); }} className="flex-1 py-3 text-center rounded-xl text-white hover:bg-white/5 text-[10px] font-bold tracking-widest">
              <span className="block text-lg mb-1">📸</span> {t.btn_export}
            </button>
+           <button onClick={() => setIsPassportModalOpen(true)} className="flex-1 py-3 text-center rounded-xl text-white hover:bg-white/5 text-[10px] font-bold tracking-widest" aria-label={t.passportBtn}>
+             <span className="block text-lg mb-1">🛂</span> {t.passportBtn}
+           </button>
            {user ? (
              <button onClick={handleLogout} className="flex-1 py-3 text-center rounded-xl text-red-500 hover:bg-white/5 text-[10px] font-bold tracking-widest">
                <span className="block text-lg mb-1 text-white">👤</span> {t.btn_logout}
              </button>
            ) : (
-             <button onClick={() => { setAuthMode('login'); setAuthModalOpen(true); }} className="flex-1 py-3 text-center rounded-xl text-gray-400 hover:bg-white/5 text-[10px] font-bold tracking-widest">
+             <button onClick={() => { setAuthMode("login"); setAuthModalOpen(true); }} className="flex-1 py-3 text-center rounded-xl text-gray-400 hover:bg-white/5 text-[10px] font-bold tracking-widest">
                <span className="block text-lg mb-1">👤</span> {t.btn_login}
              </button>
            )}
         </div>
+
+        <AnimatePresence>
+          {mobileListDrawerOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMobileListDrawerOpen(false)}
+                className="md:hidden fixed inset-0 z-[50] bg-black/60 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "tween", duration: 0.25 }}
+                className="md:hidden fixed bottom-0 left-0 right-0 z-[51] max-h-[70vh] rounded-t-2xl border border-white/10 bg-[#0a0a0a] shadow-2xl overflow-hidden"
+              >
+                <div className="flex items-center justify-between p-4 border-b border-white/10">
+                  <h3 className="text-sm font-black tracking-widest text-white">{t.tripList}</h3>
+                  <button onClick={() => setMobileListDrawerOpen(false)} className="text-white/50 hover:text-white text-xl p-2">✕</button>
+                </div>
+                <ul className="overflow-y-auto p-3 space-y-2 max-h-[60vh]">
+                  {visibleTrajectories.length === 0 ? (
+                    <li className="text-center text-white/40 text-sm py-6">{lang === "zh" ? "暂无行程" : "No trips yet"}</li>
+                  ) : (
+                    visibleTrajectories.map((tr: any) => (
+                      <li
+                        key={tr.id}
+                        onClick={() => {
+                          setSelectedTrajectory(tr);
+                          setMobileListDrawerOpen(false);
+                          const midLat = (tr.start_lat + tr.end_lat) / 2;
+                          const midLng = (tr.start_lng + tr.end_lng) / 2;
+                          const latDiff = Math.abs(tr.start_lat - tr.end_lat);
+                          const lngDiff = Math.abs(tr.start_lng - tr.end_lng);
+                          const maxDiff = Math.max(latDiff, lngDiff);
+                          const targetZoom = maxDiff > 20 ? 3 : maxDiff > 10 ? 4 : maxDiff > 5 ? 5 : maxDiff > 2 ? 6 : 8;
+                          setViewState((prev: any) => ({ ...prev, longitude: midLng, latitude: midLat, zoom: targetZoom, pitch: 0, bearing: 0, transitionDuration: 1500 }));
+                        }}
+                        className="py-3 px-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 active:border-yellow-500/30 cursor-pointer"
+                      >
+                        <p className="text-sm font-bold text-white/95 truncate">{tr.start_name} → {tr.end_name}</p>
+                        <p className="text-[10px] text-gray-500 font-mono mt-1">
+                          {tr.start_date}{tr.end_date && tr.end_date !== tr.start_date ? ` – ${tr.end_date}` : ""}
+                        </p>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
         <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-3">
           <button onClick={() => handleZoom('in')} className="w-10 h-10 bg-white/5 hover:bg-white/20 backdrop-blur-xl rounded-full text-white font-light text-xl border border-white/20 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all">＋</button>
@@ -878,15 +970,18 @@ export default function Home() {
               <div className="flex flex-wrap justify-center gap-8 md:gap-12 p-4">
                 {uniquePlaces.map((place: any, i: number) => {
                   const color = getCityColor(place.name);
+                  const isFrequent = place.count > 1;
 
                   return (
                     <div
                       key={place.name}
-                      className="relative flex flex-col items-center justify-center w-36 h-36 rounded-full border-[2px] bg-[#111] transition-transform hover:scale-105"
+                      className="relative flex flex-col items-center justify-center w-36 h-36 rounded-full border-[2px] bg-[#111] transition-transform hover:scale-105 overflow-visible"
                       style={{
                         borderColor: color,
                         color,
-                        boxShadow: `0 0 12px ${color}30`,
+                        boxShadow: isFrequent
+                          ? `0 0 0 2px rgba(251,191,36,0.5), 0 0 12px ${color}30`
+                          : `0 0 12px ${color}30`,
                       }}
                     >
                       <span className="text-[10px] font-bold tracking-[0.2em] uppercase opacity-80">ARRIVED</span>
@@ -898,7 +993,12 @@ export default function Home() {
                       <span className="mt-2 text-[10px] font-mono tracking-tighter opacity-80">
                         {place.date}
                       </span>
-                      <div className="absolute inset-1 rounded-full border border-dashed opacity-20" style={{ borderColor: color }}></div>
+                      {isFrequent && (
+                        <span className="mt-1 text-[9px] font-black opacity-90" style={{ color }}>
+                          {place.count} TRIPS
+                        </span>
+                      )}
+                      <div className="absolute inset-1 rounded-full border border-dashed opacity-20 pointer-events-none" style={{ borderColor: color }} aria-hidden></div>
                     </div>
                   );
                 })}
