@@ -1,13 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Inter } from "next/font/google";
+import { Inter, Permanent_Marker } from "next/font/google";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@supabase/supabase-js";
 import { useParams } from "next/navigation"; // 捕获动态路由参数
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700", "900"] });
+const markerFont = Permanent_Marker({ weight: "400", subsets: ["latin"], display: "swap" });
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,9 +31,12 @@ export default function PublicSharePage() {
   const globeRef = useRef<any>(null);
 
   const [isMounted, setIsMounted] = useState(false);
+  const [countriesData, setCountriesData] = useState<any[]>([]);
   const [trajectories, setTrajectories] = useState<any[]>([]);
   const [selectedTrajectory, setSelectedTrajectory] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const altitudeRef = useRef<number>(typeof window !== "undefined" && window.innerWidth < 768 ? 2.2 : 0.6);
 
   useEffect(() => {
     setIsMounted(true);
@@ -42,16 +46,48 @@ export default function PublicSharePage() {
       setIsLoading(false);
     });
 
-    const timer = setTimeout(() => {
-      if (window.innerWidth < 768) {
-        if (globeRef.current) globeRef.current.pointOfView({ lat: 30, lng: 110, altitude: 2.2 }, 2500);
-      } else {
-        if (globeRef.current) globeRef.current.pointOfView({ lat: 22.4, lng: 114.2, altitude: 0.6 }, 2500); 
-      }
-    }, 1000);
-
-    return () => clearTimeout(timer);
+    fetch("https://raw.githubusercontent.com/vasturiano/react-globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson")
+      .then((res) => res.json())
+      .then((data) => setCountriesData(data.features ?? []));
   }, [uid]);
+
+  useEffect(() => {
+    if (globeRef.current && trajectories && trajectories.length > 0) {
+      let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+      trajectories.forEach((t: any) => {
+        minLat = Math.min(minLat, t.start_lat, t.end_lat);
+        maxLat = Math.max(maxLat, t.start_lat, t.end_lat);
+        minLng = Math.min(minLng, t.start_lng, t.end_lng);
+        maxLng = Math.max(maxLng, t.start_lng, t.end_lng);
+      });
+
+      const midLat = (maxLat + minLat) / 2;
+      const midLng = (maxLng + minLng) / 2;
+      const maxSpan = Math.max(maxLat - minLat, maxLng - minLng);
+      const targetAltitude = Math.max(1.8, Math.min(2.6, 1.2 + maxSpan * 0.012));
+
+      const t = setTimeout(() => {
+        if (globeRef.current) {
+          globeRef.current.pointOfView({ lat: midLat, lng: midLng + 90, altitude: 5.0 }, 0);
+          setTimeout(() => {
+            if (globeRef.current) {
+              altitudeRef.current = targetAltitude;
+              globeRef.current.pointOfView({ lat: midLat, lng: midLng, altitude: targetAltitude }, 3000);
+            }
+          }, 50);
+        }
+      }, 100);
+      return () => clearTimeout(t);
+    }
+  }, [trajectories]);
+
+  const handleGlobeZoom = (direction: "in" | "out") => {
+    if (!globeRef.current) return;
+    const factor = direction === "in" ? 0.7 : 1.3;
+    const next = Math.max(0.25, Math.min(3.5, altitudeRef.current * factor));
+    altitudeRef.current = next;
+    globeRef.current.pointOfView({ altitude: next }, 400);
+  };
 
   const uniquePlaces = useMemo(() => {
     const placesMap = new Map();
@@ -71,15 +107,26 @@ export default function PublicSharePage() {
       <div className="absolute inset-0 cursor-grab active:cursor-grabbing pb-0">
         {/* @ts-ignore */}
         <Globe
-          ref={globeRef} 
+          ref={globeRef}
+          animateIn={false}
           globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
           rendererConfig={{ preserveDrawingBuffer: true, antialias: true }}
+          polygonsData={countriesData}
+          polygonCapColor={() => "rgba(0,0,0,0)"}
+          polygonSideColor={() => "rgba(0,0,0,0)"}
+          polygonStrokeColor={() => "rgba(255,255,255,0.05)"}
+          polygonLabel={({ properties: d }: any) => `
+  <div style="background: rgba(0,0,0,0.8); border: 1px solid rgba(255,215,0,0.3); padding: 4px 8px; border-radius: 4px; color: white; font-size: 11px; font-weight: bold; letter-spacing: 1px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+    ${d?.ADMIN ?? ""}
+  </div>
+`}
           onGlobeClick={({ lat, lng }: any) => {
             if (globeRef.current) {
               const zoomAlt = window.innerWidth < 768 ? 1.0 : 0.8;
+              altitudeRef.current = zoomAlt;
               globeRef.current.pointOfView({ lat, lng, altitude: zoomAlt }, 1500);
             }
-            setSelectedTrajectory(null); 
+            setSelectedTrajectory(null);
           }}
           
           htmlElementsData={uniquePlaces}
@@ -96,6 +143,7 @@ export default function PublicSharePage() {
             el.onclick = () => {
               if (globeRef.current) {
                 const zoomAlt = window.innerWidth < 768 ? 0.8 : 0.6;
+                altitudeRef.current = zoomAlt;
                 globeRef.current.pointOfView({ lat: d.lat, lng: d.lng, altitude: zoomAlt }, 1500);
               }
               const related = trajectories.find((t: any) => t.start_name === d.name || t.end_name === d.name);
@@ -105,24 +153,70 @@ export default function PublicSharePage() {
           }}
           
           arcsData={trajectories}
-          arcStartLat="start_lat" arcStartLng="start_lng" arcEndLat="end_lat" arcEndLng="end_lng"
-          arcColor={(d: any) => TRANSPORT_CONFIG[d.transport_mode || 'flight'].color}
-          arcAltitude={(d: any) => TRANSPORT_CONFIG[d.transport_mode || 'flight'].alt}
-          arcDashLength={(d: any) => TRANSPORT_CONFIG[d.transport_mode || 'flight'].dash}
-          arcDashGap={(d: any) => TRANSPORT_CONFIG[d.transport_mode || 'flight'].gap}
-          arcDashAnimateTime={(d: any) => TRANSPORT_CONFIG[d.transport_mode || 'flight'].time}
-          arcStroke={(d: any) => TRANSPORT_CONFIG[d.transport_mode || 'flight'].stroke}
+          arcStartLat={(d: any) => d.start_lat}
+          arcStartLng={(d: any) => d.start_lng}
+          arcEndLat={(d: any) => d.end_lat}
+          arcEndLng={(d: any) => d.end_lng}
+          arcColor={(d: any) => TRANSPORT_CONFIG[d.transport_mode || "flight"].color}
+          // 【修复核心】：动态计算高度，防止短距离航线飞出大气层
+          arcAltitude={() => 0.015}
+          arcStroke={1.5}
+          // 【动画升级】：将死板的实线变成流动的科幻射线
+          arcDashLength={0.4}
+          arcDashGap={0.2}
+          arcDashInitialGap={() => Math.random()}
+          arcDashAnimateTime={2000}
           backgroundColor="rgba(0,0,0,0)"
           
           onArcClick={(tr: any) => setSelectedTrajectory(tr)}
         />
       </div>
 
+      {/* 右侧缩放控制：与主页一致 */}
+      <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-3">
+        <button type="button" onClick={() => handleGlobeZoom("in")} className="w-10 h-10 bg-white/5 hover:bg-white/20 backdrop-blur-xl rounded-full text-white font-light text-xl border border-white/20 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all">
+          ＋
+        </button>
+        <button type="button" onClick={() => handleGlobeZoom("out")} className="w-10 h-10 bg-white/5 hover:bg-white/20 backdrop-blur-xl rounded-full text-white font-light text-xl border border-white/20 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all">
+          －
+        </button>
+      </div>
+
       {/* 顶部弱化的引流 Logo：让访客知道这是用什么工具做的 */}
       <div className="absolute top-6 left-6 z-20 pointer-events-none">
         <p className="text-[10px] text-gray-500 font-mono tracking-widest uppercase mb-1">Created on</p>
-        <h1 className="text-xl font-black tracking-[0.2em] text-white/90 leading-tight whitespace-pre-line pointer-events-auto">MY TRAVEL<br/>GLOBE</h1>
+        <h1 className={`text-3xl tracking-wide text-white drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)] leading-tight whitespace-pre-line pointer-events-auto ${markerFont.className}`}>{"MY TRAVEL\nGLOBE"}</h1>
       </div>
+
+      {/* 右上角：行程列表，透明暗黑金边 */}
+      {trajectories.length > 0 && (
+        <div className="absolute top-6 right-6 z-20 w-[220px] max-h-[45vh] overflow-y-auto rounded-xl bg-black/40 backdrop-blur-xl border border-yellow-500/20 shadow-[0_0_20px_rgba(0,0,0,0.4)]">
+          <p className="sticky top-0 py-2.5 px-3 text-[10px] font-bold tracking-widest text-yellow-500/90 uppercase border-b border-white/10 bg-black/50 backdrop-blur-sm rounded-t-xl">
+            ROUTES
+          </p>
+          <ul className="py-2">
+            {trajectories.map((tr: any) => (
+              <li
+                key={tr.id ?? `${tr.start_name}-${tr.end_name}`}
+                onClick={() => {
+                  const midLat = (tr.start_lat + tr.end_lat) / 2;
+                  const midLng = (tr.start_lng + tr.end_lng) / 2;
+                  altitudeRef.current = 1.2;
+                  if (globeRef.current) {
+                    globeRef.current.pointOfView({ lat: midLat, lng: midLng, altitude: 1.2 }, 1200);
+                  }
+                  setSelectedTrajectory(tr);
+                }}
+                className="py-2.5 px-3 mx-2 rounded-lg hover:bg-white/[0.06] border border-transparent hover:border-yellow-500/25 cursor-pointer transition-all group"
+              >
+                <p className="text-xs font-bold text-white/95 group-hover:text-yellow-400/95 truncate tracking-wide">
+                  {tr.start_name} → {tr.end_name}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* 右下角的建立自己的地球引流按钮 (Call to Action) */}
       <a href="/" className="absolute bottom-10 right-6 z-20 bg-yellow-500/90 backdrop-blur-md hover:bg-yellow-400 text-black px-6 py-4 rounded-full font-black tracking-widest text-xs shadow-[0_0_30px_rgba(234,179,8,0.3)] transition-all">

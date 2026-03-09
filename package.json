@@ -9,8 +9,12 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@deck.gl/geo-layers": "^9.2.11",
+    "@deck.gl/layers": "^9.2.11",
+    "@deck.gl/react": "^9.2.11",
     "@fontsource/inter": "^5.2.8",
     "@supabase/supabase-js": "^2.98.0",
+    "deck.gl": "^9.2.11",
     "dom-to-image-more": "^3.7.2",
     "framer-motion": "^12.35.0",
     "leaflet": "^1.9.4",
@@ -20,6 +24,7 @@
     "react-dom": "19.2.3",
     "react-globe.gl": "^2.37.0",
     "react-leaflet": "^5.0.0",
+    "react-map-gl": "^8.1.0",
     "three": "^0.183.2"
   },
   "devDependencies": {

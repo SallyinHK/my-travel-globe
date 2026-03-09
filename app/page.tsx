@@ -1,26 +1,30 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { Inter } from "next/font/google";
+import { Inter, Permanent_Marker } from "next/font/google";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@supabase/supabase-js";
 
+import Map2D from "./components/Map2D";
+// 【终极修复】：引入纯正的 WebGL 图层，彻底抛弃会穿模的 HTML 标签
+// @ts-ignore
+import { ArcLayer, GeoJsonLayer, IconLayer } from "@deck.gl/layers";
+
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700", "900"] });
+const markerFont = Permanent_Marker({ weight: "400", subsets: ["latin"], display: "swap" });
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const Globe = dynamic(() => import("react-globe.gl"), { ssr: false });
-
 const TRANSPORT_CONFIG: Record<string, any> = {
-  flight: { color: ['#ffffff30', '#00d2ff'], alt: 0.35, time: 2500, dash: 0.5, gap: 0.2, stroke: 0.25 },
-  train: { color: ['#ffffff30', '#39ff14'], alt: 0.05, time: 4000, dash: 0.2, gap: 0.1, stroke: 0.15 },
-  drive: { color: ['#ffffff30', '#ff8c00'], alt: 0.015, time: 5000, dash: 0.1, gap: 0.05, stroke: 0.1 },
-  cruise: { color: ['#ffffff30', '#000080'], alt: 0.005, time: 8000, dash: 0.05, gap: 0.02, stroke: 0.1 },
-  walk: { color: ['#ffffff30', '#a9a9a9'], alt: 0.002, time: 10000, dash: 0.02, gap: 0.01, stroke: 0.05 }
+  flight: { color: [0, 210, 255], alt: 0.5 },
+  // 【优化】：告别廉价荧光绿，换成了高级感十足的翠绿色
+  train: { color: [16, 185, 129], alt: 0.1 }, 
+  drive: { color: [255, 140, 0], alt: 0.05 },
+  cruise: { color: [0, 0, 128], alt: 0.02 },
+  walk: { color: [169, 169, 169], alt: 0.01 }
 };
 
 const DEFAULT_TRAJECTORIES = [
@@ -31,7 +35,7 @@ const DEFAULT_TRAJECTORIES = [
 const DICT: any = {
   zh: {
     loading: "正在同步地球数据...", brand: "MY TRAVEL\nGLOBE",
-    btn_login: "登录账号", btn_add: "记录旅程", btn_share: "生成分享链接",
+    btn_login: "登录账号", btn_logout: "退出登录", btn_add: "记录旅程", btn_share: "生成分享链接",
     drawer_notes: "旅行日记", drawer_date: "行程日期", drawer_memos: "回忆与提示", drawer_edit: "编辑记录", 
     btn_export: "导出地图", modal_upload_count: "已选照片: ", modal_export_loading: "正在截取高清地图...",
     modal_title: "绘制新轨迹",
@@ -42,17 +46,20 @@ const DICT: any = {
     modal_notes: "攻略与避雷", modal_notes_ph: "写点什么... 比如：避雷指南或者扫街路线...",
     modal_cancel: "取消", modal_save: "生成云端轨迹", modal_locating: "正在保存...",
     alert_not_found: "请从下拉列表中准确选择地点！",
-    auth_title_login: "账号登录", auth_title_signup: "注册账号", auth_email: "邮箱", auth_pwd: "密码 (至少6位)", auth_agree: "我已阅读并同意", auth_action_login: "立即登录", auth_action_signup: "同意协议并注册", auth_switch_signup: "没有账号？点击注册", auth_switch_login: "已有账号？直接登录",
+    auth_title_login: "账号登录", auth_title_signup: "注册账号", auth_title_reset: "重置密码",
+    auth_email: "邮箱", auth_pwd: "密码 (至少6位)", auth_agree: "我已阅读并同意", 
+    auth_action_login: "立即登录", auth_action_signup: "同意协议并注册", auth_action_reset: "发送重置邮件",
+    auth_switch_signup: "没有账号？点击注册", auth_switch_login: "已有账号？直接登录", auth_switch_reset: "忘记密码？",
     auth_err_email: "请输入有效的邮箱地址！", auth_err_email_fmt: "邮箱格式不正确！", auth_err_pwd: "请输入密码！", auth_err_pwd_len: "安全要求：密码至少需要 6 位字符！", auth_err_agree: "请先勾选同意底部的协议与政策！",
-    auth_supa_invalid: "❌ 账号或密码错误，请检查后重试！", auth_supa_exists: "❌ 该邮箱已被注册，请直接登录！", auth_supa_too_many: "❌ 请求太频繁，请稍后再试！",
-    auth_verify_msg: "✅ 注册成功！为确保账号安全，请前往邮箱点击验证链接以激活账号。",
+    auth_supa_invalid: "❌ 账号或密码错误，请检查后重试！", auth_supa_exists: "❌ 该邮箱已被注册，请直接登录！", auth_supa_too_many: "❌ 请求太频繁，请稍后再试！", auth_supa_unconfirmed: "❌ 邮箱未验证，请前往邮箱点击验证链接！",
+    auth_verify_msg: "✅ 注册成功！请前往邮箱点击验证链接以激活账号。", auth_reset_msg: "✉️ 重置密码链接已发送到您的邮箱，请查收！",
     btn_delete: "删除记录", modal_update: "更新轨迹",
     modal_export_title: "选择要在地图上展示并导出的轨迹", btn_confirm_export: "生成并下载图片",
-    share_success: "🔗 专属地球链接已复制到剪贴板！去发给朋友吧！"
+    share_success: "🔗 专属地图链接已复制到剪贴板"
   },
   en: {
     loading: "SYNCING GLOBE DATA...", brand: "MY TRAVEL\nGLOBE",
-    btn_login: "LOGIN", btn_add: "NEW JOURNEY", btn_share: "SHARE LINK",
+    btn_login: "LOGIN", btn_logout: "LOGOUT", btn_add: "NEW JOURNEY", btn_share: "SHARE LINK",
     drawer_notes: "TRAVEL NOTES", drawer_date: "DATES", drawer_memos: "MEMORIES & TIPS", drawer_edit: "EDIT RECORD", 
     btn_export: "EXPORT MAP", modal_upload_count: "Selected: ", modal_export_loading: "Capturing Image...",
     modal_title: "NEW TRAJECTORY",
@@ -63,13 +70,16 @@ const DICT: any = {
     modal_notes: "NOTES & TIPS", modal_notes_ph: "Write something... e.g. food to avoid...",
     modal_cancel: "CANCEL", modal_save: "GENERATE ARC", modal_locating: "SAVING...",
     alert_not_found: "Please select accurate locations from dropdown!",
-    auth_title_login: "LOGIN", auth_title_signup: "SIGN UP", auth_email: "EMAIL", auth_pwd: "PASSWORD (Min 6 chars)", auth_agree: "I agree to the ", auth_action_login: "LOGIN NOW", auth_action_signup: "SIGN UP", auth_switch_signup: "Don't have an account? Sign up", auth_switch_login: "Already have an account? Log in",
+    auth_title_login: "LOGIN", auth_title_signup: "SIGN UP", auth_title_reset: "RESET PASSWORD",
+    auth_email: "EMAIL", auth_pwd: "PASSWORD (Min 6 chars)", auth_agree: "I agree to the ", 
+    auth_action_login: "LOGIN NOW", auth_action_signup: "SIGN UP", auth_action_reset: "SEND RESET LINK",
+    auth_switch_signup: "Don't have an account? Sign up", auth_switch_login: "Already have an account? Log in", auth_switch_reset: "Forgot password?",
     auth_err_email: "Please enter your email!", auth_err_email_fmt: "Invalid email format!", auth_err_pwd: "Please enter your password!", auth_err_pwd_len: "Password must be at least 6 characters!", auth_err_agree: "You must agree to the Terms!",
-    auth_supa_invalid: "❌ Invalid login credentials!", auth_supa_exists: "❌ User already registered, please log in!", auth_supa_too_many: "❌ Too many requests, please try again later!",
-    auth_verify_msg: "✅ Success! Please check your email to verify and activate your account.",
+    auth_supa_invalid: "❌ Invalid login credentials!", auth_supa_exists: "❌ User already registered, please log in!", auth_supa_too_many: "❌ Too many requests, please try again later!", auth_supa_unconfirmed: "❌ Email not confirmed. Please check your inbox!",
+    auth_verify_msg: "✅ Success! Please check your email to verify your account.", auth_reset_msg: "✉️ Reset password link sent to your email!",
     btn_delete: "DELETE RECORD", modal_update: "UPDATE ARC",
     modal_export_title: "Select Trajectories to Export", btn_confirm_export: "GENERATE & DOWNLOAD",
-    share_success: "🔗 Your exclusive globe link copied to clipboard!"
+    share_success: "🔗 Your exclusive map link copied to clipboard"
   }
 };
 
@@ -82,11 +92,21 @@ function LoadingCurtain({ text }: { text: string }) {
 }
 
 export default function Home() {
-  const globeRef = useRef<any>(null);
   const [lang, setLang] = useState<'zh' | 'en'>('zh');
   const t = DICT[lang];
+  const deckRef = useRef<any>(null);
+  const mapRef = useRef<any>(null);
+
+  const MIN_ZOOM = typeof window !== "undefined" && window.innerWidth < 768 ? 2 : 2.5;
+  const MAX_PITCH = 60;
+
+  const [viewState, setViewState] = useState({
+    longitude: 114.2, latitude: 22.4, zoom: 3, pitch: 45, bearing: 0, transitionDuration: 0,
+    minZoom: MIN_ZOOM, maxZoom: 20, maxPitch: MAX_PITCH
+  });
 
   const [isMounted, setIsMounted] = useState(false);
+  const [webglDefer, setWebglDefer] = useState(false);
   const [showMainUI, setShowMainUI] = useState(false);
   const [selectedTrajectory, setSelectedTrajectory] = useState<any>(null);
   
@@ -98,7 +118,8 @@ export default function Home() {
   const [authError, setAuthError] = useState("");
   const [authSuccess, setAuthSuccess] = useState(""); 
   const [mapError, setMapError] = useState("");
-  const [isLoginMode, setIsLoginMode] = useState(true);
+  
+  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'reset'>('login');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authAgreed, setAuthAgreed] = useState(false); 
@@ -126,22 +147,32 @@ export default function Home() {
   const [isGeneratingScreenshot, setIsGeneratingScreenshot] = useState(false);
 
   const [myTrajectories, setMyTrajectories] = useState<any[]>(DEFAULT_TRAJECTORIES);
+  const [countriesData, setCountriesData] = useState<any[]>([]);
 
   useEffect(() => {
     setIsMounted(true);
     supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null));
 
-    const timer = setTimeout(() => {
-      setShowMainUI(true);
-      if (window.innerWidth < 768) {
-        if (globeRef.current) globeRef.current.pointOfView({ lat: 30, lng: 110, altitude: 2.2 }, 2500);
-      } else {
-        if (globeRef.current) globeRef.current.pointOfView({ lat: 22.4, lng: 114.2, altitude: 0.6 }, 2500); 
-      }
-    }, 2200);
+    fetch('https://raw.githubusercontent.com/vasturiano/react-globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson')
+      .then(res => res.json())
+      .then(data => setCountriesData(data.features));
 
-    return () => { clearTimeout(timer); subscription.unsubscribe(); };
+    const fallbackTimer = setTimeout(() => setShowMainUI(true), 3000);
+
+    let cancelled = false;
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!cancelled) setWebglDefer(true);
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      clearTimeout(fallbackTimer);
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -168,8 +199,89 @@ export default function Home() {
     return Array.from(placesMap.values());
   }, [visibleTrajectories]);
 
+  const layers = [
+    // @ts-ignore
+    new GeoJsonLayer({
+      id: 'countries-layer',
+      data: countriesData,
+      stroked: false,
+      filled: true,
+      getFillColor: [0, 0, 0, 0], 
+      pickable: true
+    }),
+    // @ts-ignore
+    new ArcLayer({
+      id: 'arcs-layer',
+      data: visibleTrajectories,
+      getSourcePosition: (d: any) => [d.start_lng, d.start_lat],
+      getTargetPosition: (d: any) => [d.end_lng, d.end_lat],
+      getSourceColor: (d: any) => TRANSPORT_CONFIG[d.transport_mode || 'flight'].color,
+      getTargetColor: (d: any) => TRANSPORT_CONFIG[d.transport_mode || 'flight'].color,
+      getWidth: 2.5, 
+      getHeight: (d: any) => TRANSPORT_CONFIG[d.transport_mode || 'flight'].alt,
+      pickable: true,
+      autoHighlight: true, 
+      highlightColor: [255, 255, 255, 150],
+      onClick: ({object}: any) => {
+        if (object) {
+          const midLat = (object.start_lat + object.end_lat) / 2;
+          const midLng = (object.start_lng + object.end_lng) / 2;
+          const latDiff = Math.abs(object.start_lat - object.end_lat);
+          const lngDiff = Math.abs(object.start_lng - object.end_lng);
+          const maxDiff = Math.max(latDiff, lngDiff);
+          let targetZoom = maxDiff > 20 ? 3 : maxDiff > 10 ? 4 : maxDiff > 5 ? 5 : maxDiff > 2 ? 6 : 8;
+          setViewState((prev: any) => ({
+            ...prev, longitude: midLng, latitude: midLat, zoom: targetZoom, pitch: 0, bearing: 0, transitionDuration: 1500
+          }));
+          setSelectedTrajectory(object);
+        }
+      }
+    }),
+    // 【终极修复】：原生 WebGL IconLayer。这次补齐了 SVG 必备的 width="24" height="24"，保证星星 100% 出现！
+    // @ts-ignore
+    new IconLayer({
+      id: 'stars-layer',
+      data: uniquePlaces,
+      getPosition: (d: any) => [d.lng, d.lat],
+      getIcon: () => ({
+        url: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22%23FFD700%22%20stroke%3D%22%23111111%22%20stroke-width%3D%222%22%20d%3D%22M12%202l3.09%206.26L22%209.27l-5%204.87%201.18%206.88L12%2017.77l-6.18%203.25L7%2014.14%202%209.27l6.91-1.01L12%202z%22%2F%3E%3C%2Fsvg%3E',
+        width: 24,
+        height: 24,
+        anchorY: 12
+      }),
+      getSize: 28, // 精致饱满的尺寸
+      pickable: true,
+      parameters: { depthTest: false }, // 物理级置顶，绝不被绿线遮挡穿模！
+      onClick: ({object}: any) => {
+        if(object) {
+          const related = myTrajectories.find((t: any) => t.start_name === object.name || t.end_name === object.name);
+          if (related) {
+            setSelectedTrajectory(related);
+            const midLat = (related.start_lat + related.end_lat) / 2;
+            const midLng = (related.start_lng + related.end_lng) / 2;
+            const latDiff = Math.abs(related.start_lat - related.end_lat);
+            const lngDiff = Math.abs(related.start_lng - related.end_lng);
+            const maxDiff = Math.max(latDiff, lngDiff);
+            let targetZoom = maxDiff > 20 ? 3 : maxDiff > 10 ? 4 : maxDiff > 5 ? 5 : maxDiff > 2 ? 6 : 8;
+            setViewState((prev: any) => ({ ...prev, longitude: midLng, latitude: midLat, zoom: targetZoom, pitch: 0, bearing: 0, transitionDuration: 1500 }));
+          } else {
+            setViewState((prev: any) => ({ ...prev, longitude: object.lng, latitude: object.lat, zoom: 11, pitch: 0, bearing: 0, transitionDuration: 1500 }));
+          }
+        }
+      }
+    })
+  ];
+
+  const handleZoom = (direction: 'in' | 'out') => {
+    setViewState(prev => ({
+      ...prev,
+      zoom: direction === 'in' ? prev.zoom + 0.8 : Math.max(0.5, prev.zoom - 0.8),
+      transitionDuration: 500
+    }));
+  };
+
   const handleOpenMapModal = () => { 
-    if (!user) { setAuthModalOpen(true); return; }
+    if (!user) { setAuthMode('login'); setAuthModalOpen(true); return; }
     setEditingId(null);
     setStartQuery(""); setEndQuery("");
     setSelectedStartCoords(null); setSelectedEndCoords(null);
@@ -178,31 +290,18 @@ export default function Home() {
   };
 
   const handleShare = () => {
-    if (!user) { setAuthModalOpen(true); return; }
+    if (!user) { setAuthMode('login'); setAuthModalOpen(true); return; }
     const url = `${window.location.origin}/share/${user.id}`;
-
-    // 兼容局域网 HTTP 环境的复制方案
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(url).then(() => {
-        setShareToast(t.share_success);
-        setTimeout(() => setShareToast(""), 3000);
+        setShareToast(t.share_success); setTimeout(() => setShareToast(""), 3000);
       });
     } else {
-      // 降级使用老式方法，完美绕过局域网 HTTP 的安全限制
-      const textArea = document.createElement("textarea");
-      textArea.value = url;
-      textArea.style.position = "fixed"; 
-      textArea.style.left = "-999999px";
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      try {
-        document.execCommand('copy');
-        setShareToast(t.share_success);
-        setTimeout(() => setShareToast(""), 3000);
-      } catch (error) {
-        console.error("复制失败", error);
-      }
+      const textArea = document.createElement("textarea"); textArea.value = url;
+      textArea.style.position = "fixed"; textArea.style.left = "-999999px";
+      document.body.appendChild(textArea); textArea.focus(); textArea.select();
+      try { document.execCommand('copy'); setShareToast(t.share_success); setTimeout(() => setShareToast(""), 3000); } 
+      catch (error) { console.error("复制失败", error); }
       textArea.remove();
     }
   };
@@ -211,6 +310,7 @@ export default function Home() {
     if (errMsg.includes("Invalid login credentials")) return t.auth_supa_invalid;
     if (errMsg.includes("User already registered")) return t.auth_supa_exists;
     if (errMsg.includes("rate limit") || errMsg.includes("Too many")) return t.auth_supa_too_many;
+    if (errMsg.includes("Email not confirmed")) return t.auth_supa_unconfirmed;
     return lang === 'zh' ? `❌ 发生错误: ${errMsg}` : `❌ Error: ${errMsg}`;
   };
 
@@ -219,12 +319,19 @@ export default function Home() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email) return setAuthError(t.auth_err_email);
     if (!emailRegex.test(email)) return setAuthError(t.auth_err_email_fmt);
+    setIsSubmitting(true);
+    
+    if (authMode === 'reset') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/` });
+      if (error) setAuthError(translateSupaError(error.message)); else setAuthSuccess(t.auth_reset_msg);
+      setIsSubmitting(false); return;
+    }
+
     if (!password) return setAuthError(t.auth_err_pwd);
     if (password.length < 6) return setAuthError(t.auth_err_pwd_len);
     if (!authAgreed) return setAuthError(t.auth_err_agree);
     
-    setIsSubmitting(true);
-    if (isLoginMode) {
+    if (authMode === 'login') {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) { setAuthError(translateSupaError(error.message)); } else {
         setUser(data.user); setMyTrajectories([]); 
@@ -232,7 +339,7 @@ export default function Home() {
         if (trData) setMyTrajectories(trData.length > 0 ? trData : []);
         setAuthModalOpen(false);
       }
-    } else {
+    } else if (authMode === 'signup') {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) setAuthError(translateSupaError(error.message));
       else {
@@ -241,6 +348,20 @@ export default function Home() {
       }
     }
     setIsSubmitting(false);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSelectedTrajectory(null);
+    setViewState(prev => ({
+      ...prev,
+      longitude: 114.2,
+      latitude: 22.4,
+      zoom: 3,
+      pitch: 45,
+      bearing: 0,
+      transitionDuration: 1500
+    }));
   };
 
   const fetchSuggestions = async (query: string, type: 'start' | 'end') => {
@@ -262,7 +383,7 @@ export default function Home() {
 
   const handleSaveTrajectory = async () => {
     setMapError(""); 
-    if (!user) { setModalOpen(false); setAuthModalOpen(true); return; }
+    if (!user) { setModalOpen(false); setAuthMode('login'); setAuthModalOpen(true); return; }
     if (!selectedStartCoords || !selectedEndCoords) return setMapError(t.alert_not_found);
     setIsSubmitting(true);
 
@@ -305,12 +426,11 @@ export default function Home() {
       }
       
       if (!error) {
-        if (globeRef.current) {
-          const midLat = (trajectoryData.start_lat + trajectoryData.end_lat) / 2;
-          const midLng = (trajectoryData.start_lng + trajectoryData.end_lng) / 2;
-          const zoomAlt = window.innerWidth < 768 ? 1.0 : 0.6;
-          globeRef.current.pointOfView({ lat: midLat, lng: midLng, altitude: zoomAlt }, 2000); 
-        }
+        const midLat = (trajectoryData.start_lat + trajectoryData.end_lat) / 2;
+        const midLng = (trajectoryData.start_lng + trajectoryData.end_lng) / 2;
+        const zoomAlt = window.innerWidth < 768 ? 2 : 3;
+        setViewState(prev => ({ ...prev, longitude: midLng, latitude: midLat, zoom: zoomAlt, transitionDuration: 2000 }));
+        
         setModalOpen(false); setStartQuery(""); setEndQuery(""); setSelectedStartCoords(null); setSelectedEndCoords(null);
         setStartDate(""); setEndDate(""); setNewNotes(""); setSelectedFiles([]); setEditingId(null);
       } else { setMapError("Database error: " + error.message); }
@@ -319,7 +439,7 @@ export default function Home() {
 
   const handleDeleteTrajectory = async () => {
     if (!selectedTrajectory || !selectedTrajectory.id) return;
-    const confirmMsg = lang === 'zh' ? "确定要彻底删除这条轨迹吗？操作不可逆。" : "Are you sure you want to delete this trajectory? This cannot be undone.";
+    const confirmMsg = lang === 'zh' ? "确定要彻底删除这条轨迹吗？操作不可逆。" : "Are you sure you want to delete this trajectory?";
     if (!window.confirm(confirmMsg)) return;
 
     setIsSubmitting(true);
@@ -330,16 +450,75 @@ export default function Home() {
   };
 
   const executeExport = () => {
-    setExportModalOpen(false); setIsGeneratingScreenshot(true); setSelectedTrajectory(null); 
+    setExportModalOpen(false);
+    setIsGeneratingScreenshot(true);
+    setSelectedTrajectory(null);
+
+    const targetZ = typeof window !== "undefined" && window.innerWidth < 768 ? 0.5 : 1.2;
+    setViewState((prev: any) => ({
+      ...prev,
+      longitude: 10,
+      latitude: 20,
+      zoom: targetZ,
+      minZoom: 0,
+      pitch: 0,
+      bearing: 0,
+      transitionDuration: 1000,
+    }));
+
     setTimeout(() => {
-       if (globeRef.current) {
-          try {
-            const canvas = globeRef.current.renderer().domElement; const dataUrl = canvas.toDataURL("image/png");
-            const link = document.createElement("a"); link.download = `MyExclusiveTravelMap.png`; link.href = dataUrl; link.click();
-          } catch (error) { alert("导出失败，请刷新网页后重试！"); }
-       }
-       setIsGeneratingScreenshot(false); 
-    }, 1500); 
+      const map = mapRef.current?.getMap();
+      // 增加原生 DOM 抓取作为双保险，防止 ref 透传失败
+      const deckCanvas = (deckRef.current?.deck?.getCanvas() || document.getElementById("deckgl-overlay")) as HTMLCanvasElement;
+      const mapCanvasRaw = document.querySelector(".maplibregl-canvas") as HTMLCanvasElement;
+
+      if (!deckCanvas || (!map && !mapCanvasRaw)) {
+        alert("地图尚未就绪，请稍等几秒后再试");
+        setIsGeneratingScreenshot(false);
+        setViewState((prev: any) => ({ ...prev, minZoom: MIN_ZOOM }));
+        return;
+      }
+
+      let captured = false;
+
+      const performCapture = () => {
+        if (captured) return;
+        captured = true;
+        try {
+          const mapCanvas = map ? map.getCanvas() : mapCanvasRaw;
+          const mergeCanvas = document.createElement("canvas");
+          mergeCanvas.width = mapCanvas.width;
+          mergeCanvas.height = mapCanvas.height;
+          const ctx = mergeCanvas.getContext("2d");
+
+          if (ctx) {
+            ctx.fillStyle = "#0a0a0a";
+            ctx.fillRect(0, 0, mergeCanvas.width, mergeCanvas.height);
+            ctx.drawImage(mapCanvas, 0, 0);
+            ctx.drawImage(deckCanvas, 0, 0);
+
+            const dataUrl = mergeCanvas.toDataURL("image/png");
+            const link = document.createElement("a");
+            link.download = `MyTravelGlobe_Poster_${Date.now()}.png`;
+            link.href = dataUrl;
+            link.click();
+          }
+        } catch (err) {
+          console.error("Capture failed:", err);
+          alert("导出失败，请刷新页面后重试！");
+        } finally {
+          setIsGeneratingScreenshot(false);
+          setViewState((prev: any) => ({ ...prev, minZoom: MIN_ZOOM }));
+        }
+      };
+
+      if (map && map.isStyleLoaded && map.isStyleLoaded()) {
+        map.once("render", performCapture);
+        map.triggerRepaint();
+      } else {
+        performCapture();
+      }
+    }, 1200);
   };
 
   if (!isMounted) return <div className="min-h-screen bg-[#020202]" />;
@@ -361,39 +540,85 @@ export default function Home() {
       </AnimatePresence>
 
       <div className="absolute inset-0 flex flex-col md:flex-row">
-        {/* 响应式边栏：桌面端靠左，移动端变为顶部 Header + 底部浮动 Tab */}
         
-        {/* Mobile Top Header */}
         <header className="md:hidden absolute top-0 w-full z-20 flex justify-between items-center p-6 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
-           <h1 className="text-xl font-black tracking-[0.2em] text-white drop-shadow-lg leading-tight whitespace-pre-line pointer-events-auto">{t.brand}</h1>
+           <h1 className={`text-3xl tracking-wide text-white drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)] leading-tight whitespace-pre-line pointer-events-auto ${markerFont.className}`}>{t.brand}</h1>
            <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="pointer-events-auto text-[10px] font-bold tracking-widest border border-white/30 rounded-md px-2 py-1 hover:bg-white/10 transition-colors bg-black/50 backdrop-blur-md">{lang === 'zh' ? 'EN' : '中'}</button>
         </header>
 
-        {/* Desktop Sidebar */}
         <aside className="hidden md:flex w-[320px] shrink-0 flex-col bg-white/[0.02] backdrop-blur-2xl border-r border-white/5 z-20">
-          <div className="pt-10 px-6 pb-8 flex justify-between items-start">
-            <h1 className="text-xl font-black tracking-[0.2em] text-white/95 leading-tight whitespace-pre-line">{t.brand}</h1>
+          <div className="pt-10 px-6 pb-6 flex justify-between items-start">
+            <h1 className={`text-3xl tracking-wide text-white drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)] leading-tight whitespace-pre-line ${markerFont.className}`}>{t.brand}</h1>
             <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="text-[10px] font-bold tracking-widest border border-white/20 rounded-md px-2 py-1 hover:bg-white/10 transition-colors">{lang === 'zh' ? 'EN' : '中'}</button>
           </div>
-          <div className="flex-1 px-4 space-y-4 pt-4">
-             <button onClick={handleOpenMapModal} className="w-full py-4 rounded-xl bg-white text-black hover:bg-yellow-400 text-sm font-black tracking-widest transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]">
-              {t.btn_add}
-             </button>
-             <button onClick={handleShare} className="w-full py-4 rounded-xl bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 text-yellow-500 text-sm font-bold tracking-widest transition-all">
-              {t.btn_share}
-             </button>
-             <button onClick={() => { setSelectedExportIds(myTrajectories.map(t => t.id)); setExportModalOpen(true); }} className="w-full py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-bold tracking-widest transition-all">
-              {t.btn_export}
-             </button>
+
+          {/* 我的行程列表：过滤掉 demo 数据 */}
+          <div className="flex-1 overflow-y-auto px-4 min-h-0">
+            <p className="text-[10px] font-bold tracking-widest text-yellow-500/80 uppercase mb-3 px-1">{lang === "zh" ? "我的行程" : "MY TRIPS"}</p>
+            <ul className="space-y-2">
+              {myTrajectories.map((tr: any) => (
+                  <li
+                    key={tr.id}
+                    onClick={() => {
+                      setSelectedTrajectory(tr);
+                      const midLat = (tr.start_lat + tr.end_lat) / 2;
+                      const midLng = (tr.start_lng + tr.end_lng) / 2;
+                      const latDiff = Math.abs(tr.start_lat - tr.end_lat);
+                      const lngDiff = Math.abs(tr.start_lng - tr.end_lng);
+                      const maxDiff = Math.max(latDiff, lngDiff);
+                      let targetZoom = maxDiff > 20 ? 3 : maxDiff > 10 ? 4 : maxDiff > 5 ? 5 : maxDiff > 2 ? 6 : 8;
+                      setViewState((prev: any) => ({
+                        ...prev,
+                        longitude: midLng,
+                        latitude: midLat,
+                        zoom: targetZoom,
+                        pitch: 0,
+                        bearing: 0,
+                        transitionDuration: 1500,
+                      }));
+                    }}
+                    className="py-3 px-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-yellow-500/30 cursor-pointer transition-all group"
+                  >
+                    <p className="text-sm font-bold text-white/95 group-hover:text-yellow-400/95 truncate tracking-wide">
+                      {tr.start_name} → {tr.end_name}
+                    </p>
+                    <p className="text-[10px] text-gray-500 font-mono mt-1">
+                      {tr.start_date}
+                      {tr.end_date && tr.end_date !== tr.start_date ? ` – ${tr.end_date}` : ""}
+                    </p>
+                  </li>
+                ))}
+            </ul>
           </div>
-          <div className="p-6 border-t border-white/5">
-            <button onClick={() => { if(!user) setAuthModalOpen(true); else supabase.auth.signOut(); }} className="w-full py-3 rounded-xl bg-transparent border border-white/10 hover:border-white/30 text-white/70 hover:text-white text-xs font-bold tracking-widest transition-all">
-              {user ? `已登录: ${user.email.split('@')[0]} (登出)` : t.btn_login}
+
+          {/* 底部：操作按钮 + 账号区 */}
+          <div className="shrink-0 px-4 pb-4 space-y-3">
+            <button onClick={handleOpenMapModal} className="w-full py-4 rounded-xl bg-white text-black hover:bg-yellow-400 text-sm font-black tracking-widest transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+              {t.btn_add}
             </button>
+            <button onClick={handleShare} className="w-full py-4 rounded-xl bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 text-yellow-500 text-sm font-bold tracking-widest transition-all">
+              {t.btn_share}
+            </button>
+            <button onClick={() => { setSelectedExportIds(myTrajectories.map(t => t.id)); setExportModalOpen(true); }} className="w-full py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-bold tracking-widest transition-all">
+              {t.btn_export}
+            </button>
+          </div>
+          <div className="p-6 pt-0 border-t border-white/5 flex flex-col justify-end">
+            {user ? (
+              <div className="space-y-3">
+                <div className="text-xs text-gray-500 font-mono truncate text-center px-2">ID: {user.email}</div>
+                <button onClick={handleLogout} className="w-full py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-500 hover:text-red-400 text-xs font-bold tracking-widest transition-all">
+                  {t.btn_logout}
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => { setAuthMode('login'); setAuthModalOpen(true); }} className="w-full py-3 rounded-xl bg-transparent border border-white/10 hover:border-white/30 text-white/70 hover:text-white text-xs font-bold tracking-widest transition-all">
+                {t.btn_login}
+              </button>
+            )}
           </div>
         </aside>
 
-        {/* Mobile Bottom Tab Bar */}
         <div className="md:hidden absolute bottom-6 left-6 right-6 z-20 flex justify-between bg-[#111]/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 shadow-2xl">
            <button onClick={handleOpenMapModal} className="flex-1 py-3 text-center rounded-xl bg-white text-black text-xs font-black tracking-widest">
              <span className="block text-lg mb-1">➕</span> {t.btn_add}
@@ -404,66 +629,49 @@ export default function Home() {
            <button onClick={() => { setSelectedExportIds(myTrajectories.map(t => t.id)); setExportModalOpen(true); }} className="flex-1 py-3 text-center rounded-xl text-white hover:bg-white/5 text-[10px] font-bold tracking-widest">
              <span className="block text-lg mb-1">📸</span> {t.btn_export}
            </button>
-           <button onClick={() => { if(!user) setAuthModalOpen(true); else supabase.auth.signOut(); }} className="flex-1 py-3 text-center rounded-xl text-gray-400 hover:bg-white/5 text-[10px] font-bold tracking-widest">
-             <span className="block text-lg mb-1">👤</span> {user ? '登出' : '登录'}
-           </button>
+           {user ? (
+             <button onClick={handleLogout} className="flex-1 py-3 text-center rounded-xl text-red-500 hover:bg-white/5 text-[10px] font-bold tracking-widest">
+               <span className="block text-lg mb-1 text-white">👤</span> {t.btn_logout}
+             </button>
+           ) : (
+             <button onClick={() => { setAuthMode('login'); setAuthModalOpen(true); }} className="flex-1 py-3 text-center rounded-xl text-gray-400 hover:bg-white/5 text-[10px] font-bold tracking-widest">
+               <span className="block text-lg mb-1">👤</span> {t.btn_login}
+             </button>
+           )}
         </div>
 
-        <div className="flex-1 relative flex items-center justify-center bg-black">
-          <motion.div className="absolute inset-0 cursor-grab active:cursor-grabbing pb-24 md:pb-0" initial={{ scale: 0.8, opacity: 0 }} animate={showMainUI ? { scale: 1, opacity: 1 } : { scale: 0.8, opacity: 0 }} transition={{ duration: 1.5, ease: "easeOut" }}>
-            {/* @ts-ignore */}
-            <Globe
-              ref={globeRef} 
-              globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
-              rendererConfig={{ preserveDrawingBuffer: true, antialias: true }}
-              onGlobeClick={({ lat, lng }: any) => {
-                if (globeRef.current) {
-                  const zoomAlt = window.innerWidth < 768 ? 1.0 : 0.8;
-                  globeRef.current.pointOfView({ lat, lng, altitude: zoomAlt }, 1500);
-                }
-                setSelectedTrajectory(null); 
+        <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-3">
+          <button onClick={() => handleZoom('in')} className="w-10 h-10 bg-white/5 hover:bg-white/20 backdrop-blur-xl rounded-full text-white font-light text-xl border border-white/20 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all">＋</button>
+          <button onClick={() => handleZoom('out')} className="w-10 h-10 bg-white/5 hover:bg-white/20 backdrop-blur-xl rounded-full text-white font-light text-xl border border-white/20 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all">－</button>
+        </div>
+
+        <div className="flex-1 relative bg-black">
+          <div className="absolute inset-0 pb-24 md:pb-0">
+            <Map2D
+              lang={lang}
+              viewState={viewState}
+              onViewStateChange={({ viewState: vs }: any) => {
+                const minZ = typeof viewState.minZoom === "number" ? viewState.minZoom : MIN_ZOOM;
+                const maxZ = typeof viewState.maxZoom === "number" ? viewState.maxZoom : 20;
+                const maxP = typeof viewState.maxPitch === "number" ? viewState.maxPitch : MAX_PITCH;
+                setViewState({
+                  ...vs,
+                  zoom: Math.max(minZ, Math.min(maxZ, vs.zoom ?? minZ)),
+                  pitch: Math.max(0, Math.min(maxP, vs.pitch ?? 0)),
+                  transitionDuration: 0
+                } as any);
               }}
-              
-              htmlElementsData={uniquePlaces}
-              htmlElement={(d: any) => {
-                const el = document.createElement('div');
-                el.style.position = 'relative'; el.style.width = '0px'; el.style.height = '0px'; el.style.pointerEvents = 'auto'; el.style.cursor = 'pointer';
-                el.innerHTML = `
-                  <div style="position: absolute; left: -12px; bottom: 0px; width: 24px; height: 24px;">
-                    <svg viewBox="0 0 24 24" fill="#FFD700" style="width: 100%; height: 100%; filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.8));"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                  </div>
-                  <div style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-family: sans-serif; background: rgba(0,0,0,0.6); color: white; font-size: 10px; font-weight: bold; padding: 3px 6px; border-radius: 4px; text-shadow: 0 1px 2px black;">${d.name}</div>
-                `;
-                el.onpointerdown = (e) => e.stopPropagation();
-                el.onclick = () => {
-                  if (globeRef.current) {
-                    const zoomAlt = window.innerWidth < 768 ? 0.8 : 0.6;
-                    globeRef.current.pointOfView({ lat: d.lat, lng: d.lng, altitude: zoomAlt }, 1500);
-                  }
-                  const related = myTrajectories.find((t: any) => t.start_name === d.name || t.end_name === d.name);
-                  if(related) setSelectedTrajectory(related);
-                };
-                return el;
-              }}
-              
-              arcsData={visibleTrajectories}
-              arcStartLat="start_lat" arcStartLng="start_lng" arcEndLat="end_lat" arcEndLng="end_lng"
-              arcColor={(d: any) => TRANSPORT_CONFIG[d.transport_mode || 'flight'].color}
-              // 【修改点】：将 arcAltitude 设置为 0，让路线紧贴地球表面
-              arcAltitude={0}
-              arcDashLength={(d: any) => TRANSPORT_CONFIG[d.transport_mode || 'flight'].dash}
-              arcDashGap={(d: any) => TRANSPORT_CONFIG[d.transport_mode || 'flight'].gap}
-              arcDashAnimateTime={(d: any) => TRANSPORT_CONFIG[d.transport_mode || 'flight'].time}
-              arcStroke={(d: any) => TRANSPORT_CONFIG[d.transport_mode || 'flight'].stroke}
-              backgroundColor="rgba(0,0,0,0)"
-              
-              onArcClick={(tr: any) => setSelectedTrajectory(tr)}
+              layers={layers}
+              deckRef={deckRef}
+              webglDefer={webglDefer}
+              setSelectedTrajectory={setSelectedTrajectory}
+              onMapLoad={() => setShowMainUI(true)}
+              mapRef={mapRef}
             />
-          </motion.div>
+          </div>
         </div>
       </div>
 
-      {/* 响应式 Drawer：Mobile 变为 Bottom Sheet */}
       <motion.div className={`fixed bottom-0 right-0 h-[70vh] md:h-full w-full md:w-[450px] bg-[#050505]/95 backdrop-blur-3xl border-t md:border-l md:border-t-0 border-white/10 p-6 md:p-10 text-white z-40 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] md:shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] rounded-t-[2rem] md:rounded-none ${selectedTrajectory ? "translate-y-0 md:translate-x-0" : "translate-y-full md:translate-y-0 md:translate-x-full"}`}>
         {selectedTrajectory && (
           <div className="h-full flex flex-col relative overflow-y-auto pr-2 pb-10 scrollbar-hide">
@@ -499,7 +707,7 @@ export default function Home() {
             
             <div className="mt-6 flex gap-3">
               <button onClick={() => {
-                  if(!user) { setAuthModalOpen(true); return; } if(!selectedTrajectory.id) return;
+                  if(!user) { setAuthMode('login'); setAuthModalOpen(true); return; } if(!selectedTrajectory.id) return;
                   setStartQuery(selectedTrajectory.start_name); setEndQuery(selectedTrajectory.end_name);
                   setSelectedStartCoords({ lat: selectedTrajectory.start_lat, lng: selectedTrajectory.start_lng }); setSelectedEndCoords({ lat: selectedTrajectory.end_lat, lng: selectedTrajectory.end_lng });
                   setStartDate(selectedTrajectory.start_date); setEndDate(selectedTrajectory.end_date); setTransportMode(selectedTrajectory.transport_mode); setNewNotes(selectedTrajectory.notes);
@@ -519,88 +727,6 @@ export default function Home() {
         )}
       </motion.div>
 
-      {/* 响应式 Modals：增加 p-4 以适应窄屏幕 */}
-      <AnimatePresence>
-        {exportModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-             <motion.div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setExportModalOpen(false)} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
-             <motion.div className="relative w-full max-w-md rounded-[2rem] border border-white/10 bg-[#0a0a0a] shadow-2xl p-6 md:p-8 text-white max-h-[80vh] overflow-y-auto scrollbar-hide" initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}>
-                 <h3 className="text-lg md:text-xl font-black tracking-widest mb-6">{t.modal_export_title}</h3>
-                 <div className="space-y-2 mb-8">
-                    {myTrajectories.length === 0 || (myTrajectories.length > 0 && myTrajectories[0].id?.startsWith("demo-")) ? (
-                       <p className="text-gray-500 text-sm text-center py-4">暂无专属记录，请先添加行程</p>
-                    ) : (
-                      myTrajectories.map(tr => (
-                         <label key={tr.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10 transition">
-                            <input type="checkbox" checked={selectedExportIds.includes(tr.id)} onChange={(e) => {
-                                if (e.target.checked) setSelectedExportIds(prev => [...prev, tr.id]);
-                                else setSelectedExportIds(prev => prev.filter(id => id !== tr.id));
-                            }} className="accent-yellow-500 w-4 h-4 shrink-0" />
-                            <span className="text-xs md:text-sm font-bold truncate">{tr.start_name} → {tr.end_name}</span>
-                         </label>
-                      ))
-                    )}
-                 </div>
-                 <div className="flex gap-4">
-                    <button onClick={() => setExportModalOpen(false)} className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 hover:text-white font-bold tracking-widest text-xs">{t.modal_cancel}</button>
-                    <button onClick={executeExport} disabled={selectedExportIds.length === 0 || (myTrajectories.length > 0 && myTrajectories[0].id?.startsWith("demo-"))} className="flex-1 py-3 rounded-xl bg-yellow-500 text-black hover:bg-yellow-400 font-bold tracking-widest text-xs disabled:opacity-30">{t.btn_confirm_export}</button>
-                 </div>
-             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {authModalOpen && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 backdrop-blur-2xl bg-black/60">
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-[#0a0a0a] border border-white/10 w-full max-w-sm rounded-[2.5rem] p-8 md:p-10 shadow-2xl">
-              <button disabled={isSubmitting} className="absolute top-6 right-6 text-gray-500 hover:text-white disabled:opacity-50" onClick={() => { setAuthModalOpen(false); setAuthSuccess(""); setAuthError(""); }}>✕</button>
-              <h3 className="text-lg md:text-xl font-black tracking-widest mb-8 text-center">{isLoginMode ? t.auth_title_login : t.auth_title_signup}</h3>
-              {authSuccess ? (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center text-center space-y-6">
-                  <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center border border-green-500/20"><span className="text-2xl">📬</span></div>
-                  <p className="text-green-400 text-sm font-bold tracking-widest leading-relaxed">{authSuccess}</p>
-                  <button onClick={() => { setAuthSuccess(""); setIsLoginMode(true); }} className="text-gray-400 text-xs underline underline-offset-4 hover:text-white mt-4">返回登录</button>
-                </motion.div>
-              ) : (
-                <>
-                  <div className="space-y-5">
-                    <div>
-                      <label className="block text-[10px] font-mono text-gray-500 mb-2 tracking-widest">{t.auth_email}</label>
-                      <input disabled={isSubmitting} type="email" value={email} onChange={(e) => { setEmail(e.target.value); setAuthError(""); }} placeholder="hello@example.com" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:border-yellow-500/50 transition-colors disabled:opacity-50" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-mono text-gray-500 mb-2 tracking-widest">{t.auth_pwd}</label>
-                      <input disabled={isSubmitting} type="password" value={password} onChange={(e) => { setPassword(e.target.value); setAuthError(""); }} placeholder="•••••••• (至少6位)" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:border-yellow-500/50 transition-colors disabled:opacity-50" />
-                    </div>
-                    <div className="flex items-start gap-3 pt-2">
-                      <input disabled={isSubmitting} type="checkbox" id="agreement" checked={authAgreed} onChange={(e) => { setAuthAgreed(e.target.checked); setAuthError(""); }} className="mt-1 w-4 h-4 rounded border-white/20 bg-white/5 checked:bg-yellow-500 checked:border-yellow-500 appearance-none flex items-center justify-center after:content-['✓'] after:text-black after:text-[10px] after:font-bold checked:after:block after:hidden cursor-pointer disabled:opacity-50 shrink-0" />
-                      <label htmlFor="agreement" className="text-[10px] text-gray-500 leading-relaxed cursor-pointer select-none flex-1">
-                        {t.auth_agree}
-                        <span className="text-yellow-500 hover:underline mx-1" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>《用户协议》</span>
-                        {lang === 'zh' ? '和' : 'and'}
-                        <span className="text-yellow-500 hover:underline mx-1" onClick={(e) => { e.preventDefault(); setShowPrivacy(true); }}>《隐私政策》</span>
-                      </label>
-                    </div>
-                  </div>
-                  <AnimatePresence>
-                    {authError && <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-red-400 text-xs font-bold tracking-wider mt-5 text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20">{authError}</motion.p>}
-                  </AnimatePresence>
-                  <button disabled={isSubmitting} onClick={handleAuthSubmit} className={`w-full ${authError ? 'mt-4' : 'mt-8'} py-4 rounded-xl text-black transition-all text-xs font-black tracking-widest shadow-[0_0_20px_rgba(255,255,255,0.1)] ${isSubmitting ? 'bg-yellow-600 cursor-not-allowed' : 'bg-white hover:bg-yellow-400'}`}>
-                    {isSubmitting ? t.loading : (isLoginMode ? t.auth_action_login : t.auth_action_signup)}
-                  </button>
-                  <div className="mt-6 text-center">
-                    <button disabled={isSubmitting} onClick={() => { setIsLoginMode(!isLoginMode); setAuthError(""); }} className="text-[10px] text-gray-500 hover:text-white transition-colors tracking-widest underline underline-offset-4 disabled:opacity-50">
-                      {isLoginMode ? t.auth_switch_signup : t.auth_switch_login}
-                    </button>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
       <AnimatePresence>
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-4">
@@ -617,7 +743,7 @@ export default function Home() {
                       {startSuggestions?.length > 0 && !selectedStartCoords && (
                         <div className="absolute top-full left-0 right-0 bg-[#111] border border-white/10 rounded-xl mt-1 z-50 overflow-hidden shadow-2xl max-h-48 overflow-y-auto">
                           {startSuggestions.map((f, i) => (
-                            <button key={i} onClick={() => { setStartQuery(f.properties.name); setSelectedStartCoords({lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0]}); setStartSuggestions([]); }} className="w-full p-3 text-left text-xs hover:bg-white/10 border-b border-white/5 text-white/80">
+                            <button key={i} onClick={() => { setStartQuery(f.properties.name); setSelectedStartCoords({ lat: f.geometry?.coordinates?.[1] || 0, lng: f.geometry?.coordinates?.[0] || 0 }); setStartSuggestions([]); }} className="w-full p-3 text-left text-xs hover:bg-white/10 border-b border-white/5 text-white/80">
                               <span className="font-bold text-white block">{f.properties.name}</span>
                               <span className="text-gray-500 text-[9px] mt-0.5 block truncate">{[f.properties.city, f.properties.state, f.properties.country].filter(Boolean).join(", ")}</span>
                             </button>
@@ -640,7 +766,7 @@ export default function Home() {
                       {endSuggestions?.length > 0 && !selectedEndCoords && (
                         <div className="absolute top-full left-0 right-0 bg-[#111] border border-white/10 rounded-xl mt-1 z-50 overflow-hidden shadow-2xl max-h-48 overflow-y-auto">
                           {endSuggestions.map((f, i) => (
-                            <button key={i} onClick={() => { setEndQuery(f.properties.name); setSelectedEndCoords({lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0]}); setEndSuggestions([]); }} className="w-full p-3 text-left text-xs hover:bg-white/10 border-b border-white/5 text-white/80">
+                            <button key={i} onClick={() => { setEndQuery(f.properties.name); setSelectedEndCoords({ lat: f.geometry?.coordinates?.[1] || 0, lng: f.geometry?.coordinates?.[0] || 0 }); setEndSuggestions([]); }} className="w-full p-3 text-left text-xs hover:bg-white/10 border-b border-white/5 text-white/80">
                               <span className="font-bold text-white block">{f.properties.name}</span>
                               <span className="text-gray-500 text-[9px] mt-0.5 block truncate">{[f.properties.city, f.properties.state, f.properties.country].filter(Boolean).join(", ")}</span>
                             </button>
@@ -710,7 +836,113 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* 用户协议弹窗 */}
+      <AnimatePresence>
+        {exportModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+             <motion.div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setExportModalOpen(false)} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
+             <motion.div className="relative w-full max-w-md rounded-[2rem] border border-white/10 bg-[#0a0a0a] shadow-2xl p-6 md:p-8 text-white max-h-[80vh] overflow-y-auto scrollbar-hide" initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}>
+                 <h3 className="text-lg md:text-xl font-black tracking-widest mb-6">{t.modal_export_title}</h3>
+                 <div className="space-y-2 mb-8">
+                    {myTrajectories.length === 0 || (myTrajectories.length > 0 && myTrajectories[0].id?.startsWith("demo-")) ? (
+                       <p className="text-gray-500 text-sm text-center py-4">暂无专属记录，请先添加行程</p>
+                    ) : (
+                      myTrajectories.map(tr => (
+                         <label key={tr.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10 transition">
+                            <input type="checkbox" checked={selectedExportIds.includes(tr.id)} onChange={(e) => {
+                                if (e.target.checked) setSelectedExportIds(prev => [...prev, tr.id]);
+                                else setSelectedExportIds(prev => prev.filter(id => id !== tr.id));
+                            }} className="accent-yellow-500 w-4 h-4 shrink-0" />
+                            <span className="text-xs md:text-sm font-bold truncate">{tr.start_name} → {tr.end_name}</span>
+                         </label>
+                      ))
+                    )}
+                 </div>
+                 <div className="flex gap-4">
+                    <button onClick={() => setExportModalOpen(false)} className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 hover:text-white font-bold tracking-widest text-xs">{t.modal_cancel}</button>
+                    <button onClick={executeExport} disabled={selectedExportIds.length === 0 || (myTrajectories.length > 0 && myTrajectories[0].id?.startsWith("demo-"))} className="flex-1 py-3 rounded-xl bg-yellow-500 text-black hover:bg-yellow-400 font-bold tracking-widest text-xs disabled:opacity-30">{t.btn_confirm_export}</button>
+                 </div>
+             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {authModalOpen && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 backdrop-blur-2xl bg-black/60">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-[#0a0a0a] border border-white/10 w-full max-w-sm rounded-[2.5rem] p-8 md:p-10 shadow-2xl relative">
+              <button disabled={isSubmitting} className="absolute top-6 right-6 text-gray-500 hover:text-white disabled:opacity-50" onClick={() => { setAuthModalOpen(false); setAuthSuccess(""); setAuthError(""); }}>✕</button>
+              
+              <h3 className="text-lg md:text-xl font-black tracking-widest mb-8 text-center">
+                {authMode === 'login' ? t.auth_title_login : authMode === 'signup' ? t.auth_title_signup : t.auth_title_reset}
+              </h3>
+              
+              {authSuccess ? (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center text-center space-y-6">
+                  <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center border border-green-500/20"><span className="text-2xl">📬</span></div>
+                  <p className="text-green-400 text-sm font-bold tracking-widest leading-relaxed">{authSuccess}</p>
+                  <button onClick={() => { setAuthSuccess(""); setAuthMode('login'); }} className="text-gray-400 text-xs underline underline-offset-4 hover:text-white mt-4">返回登录</button>
+                </motion.div>
+              ) : (
+                <>
+                  <div className="space-y-5">
+                    <div>
+                      <label className="block text-[10px] font-mono text-gray-500 mb-2 tracking-widest">{t.auth_email}</label>
+                      <input disabled={isSubmitting} type="email" value={email} onChange={(e) => { setEmail(e.target.value); setAuthError(""); }} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:border-yellow-500/50 transition-colors disabled:opacity-50" />
+                    </div>
+                    
+                    {authMode !== 'reset' && (
+                      <div>
+                        <div className="flex justify-between mb-2">
+                          <label className="block text-[10px] font-mono text-gray-500 tracking-widest">{t.auth_pwd}</label>
+                          {authMode === 'login' && (
+                            <button onClick={() => { setAuthMode('reset'); setAuthError(""); }} className="text-[10px] text-gray-500 hover:text-white transition-colors tracking-widest underline underline-offset-4 disabled:opacity-50">
+                              {t.auth_switch_reset}
+                            </button>
+                          )}
+                        </div>
+                        <input disabled={isSubmitting} type="password" value={password} onChange={(e) => { setPassword(e.target.value); setAuthError(""); }} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:border-yellow-500/50 transition-colors disabled:opacity-50" />
+                      </div>
+                    )}
+
+                    {authMode !== 'reset' && (
+                      <div className="flex items-start gap-3 pt-2">
+                        <input disabled={isSubmitting} type="checkbox" id="agreement" checked={authAgreed} onChange={(e) => { setAuthAgreed(e.target.checked); setAuthError(""); }} className="mt-1 w-4 h-4 rounded border-white/20 bg-white/5 checked:bg-yellow-500 checked:border-yellow-500 appearance-none flex items-center justify-center after:content-['✓'] after:text-black after:text-[10px] after:font-bold checked:after:block after:hidden cursor-pointer disabled:opacity-50 shrink-0" />
+                        <label htmlFor="agreement" className="text-[10px] text-gray-500 leading-relaxed cursor-pointer select-none flex-1">
+                          {t.auth_agree}
+                          <span className="text-yellow-500 hover:underline mx-1" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>《用户协议》</span>
+                          {lang === 'zh' ? '和' : 'and'}
+                          <span className="text-yellow-500 hover:underline mx-1" onClick={(e) => { e.preventDefault(); setShowPrivacy(true); }}>《隐私政策》</span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <AnimatePresence>
+                    {authError && <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-red-400 text-xs font-bold tracking-wider mt-5 text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20">{authError}</motion.p>}
+                  </AnimatePresence>
+                  
+                  <button disabled={isSubmitting} onClick={handleAuthSubmit} className={`w-full ${authError ? 'mt-4' : 'mt-8'} py-4 rounded-xl text-black transition-all text-xs font-black tracking-widest shadow-[0_0_20px_rgba(255,255,255,0.1)] ${isSubmitting ? 'bg-yellow-600 cursor-not-allowed' : 'bg-white hover:bg-yellow-400'}`}>
+                    {isSubmitting ? t.loading : (authMode === 'login' ? t.auth_action_login : authMode === 'signup' ? t.auth_action_signup : t.auth_action_reset)}
+                  </button>
+                  
+                  <div className="mt-6 text-center space-y-4 flex flex-col">
+                    {authMode === 'reset' ? (
+                       <button disabled={isSubmitting} onClick={() => { setAuthMode('login'); setAuthError(""); }} className="text-[10px] text-gray-500 hover:text-white transition-colors tracking-widest underline underline-offset-4 disabled:opacity-50">
+                         {t.auth_switch_login}
+                       </button>
+                    ) : (
+                       <button disabled={isSubmitting} onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setAuthError(""); }} className="text-[10px] text-gray-500 hover:text-white transition-colors tracking-widest underline underline-offset-4 disabled:opacity-50">
+                         {authMode === 'login' ? t.auth_switch_signup : t.auth_switch_login}
+                       </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {showTerms && (
           <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
@@ -721,7 +953,7 @@ export default function Home() {
                  <div className="space-y-4 text-sm text-gray-400 leading-relaxed">
                     <p>欢迎使用 My Travel Globe。在使用本服务前，请仔细阅读以下条款：</p>
                     <h4 className="text-white font-bold">1. 服务内容</h4>
-                    <p>本平台为您提供个人旅行轨迹的 3D 地球可视化、云端照片存储及地图图片生成导出服务。</p>
+                    <p>本平台为您提供个人旅行轨迹的 3D 地图可视化、云端照片存储及地图图片生成导出服务。</p>
                     <h4 className="text-white font-bold">2. 用户行为规范</h4>
                     <p>您需对您账号下产生的所有行为负责。请勿上传任何违法、侵权、涉黄、涉暴的图片或文字内容。如若违反，平台有权随时封禁您的账号并删除相关数据。</p>
                     <h4 className="text-white font-bold">3. 数据确权与免责声明</h4>
@@ -733,7 +965,6 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* 隐私政策弹窗 */}
       <AnimatePresence>
         {showPrivacy && (
           <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
