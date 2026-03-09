@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@supabase/supabase-js";
 
 import Map2D from "./components/Map2D";
-// 【终极修复】：引入纯正的 WebGL 图层，彻底抛弃会穿模的 HTML 标签
 // @ts-ignore
 import { ArcLayer, GeoJsonLayer, IconLayer } from "@deck.gl/layers";
 
@@ -20,7 +19,6 @@ const supabase = createClient(
 
 const TRANSPORT_CONFIG: Record<string, any> = {
   flight: { color: [0, 210, 255], alt: 0.5 },
-  // 【优化】：告别廉价荧光绿，换成了高级感十足的翠绿色
   train: { color: [16, 185, 129], alt: 0.1 }, 
   drive: { color: [255, 140, 0], alt: 0.05 },
   cruise: { color: [0, 0, 128], alt: 0.02 },
@@ -28,8 +26,8 @@ const TRANSPORT_CONFIG: Record<string, any> = {
 };
 
 const DEFAULT_TRAJECTORIES = [
-  { id: "demo-1", start_name: "TOKYO", start_lat: 35.6762, start_lng: 139.6503, end_name: "KYOTO", end_lat: 35.0116, end_lng: 135.7681, start_date: "2026-03-20", end_date: "2026-03-25", transport_mode: "train", notes: "新干线直达！在京都宇治打卡了最浓郁的抹茶排队神店，清水寺的黄昏光影简直绝了，原片直出零修图。", image_urls: ["https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=800&auto=format&fit=crop"] },
-  { id: "demo-2", start_name: "NEW YORK", start_lat: 40.7128, start_lng: -74.0060, end_name: "LOS ANGELES", end_lat: 34.0522, end_lng: -118.2437, start_date: "2026-04-10", end_date: "2026-04-18", transport_mode: "flight", notes: "跨越东西海岸的追光之旅。从曼哈顿的钢筋水泥飞到加州的落日橘子海，圣莫尼卡海滩的晚风治愈一切。", image_urls: ["https://images.unsplash.com/photo-1501504905252-473c47e087f8?q=80&w=800&auto=format&fit=crop"] }
+  { id: "demo-1", start_name: "TOKYO", start_lat: 35.6762, start_lng: 139.6503, end_name: "KYOTO", end_lat: 35.0116, end_lng: 135.7681, start_date: "2026-03-20", end_date: "2026-03-25", transport_mode: "train", notes: "新干线直达！在京都宇治打卡了最浓郁的抹茶排队神店，清水寺的黄昏光影简直绝了，原片直出零修图。" },
+  { id: "demo-2", start_name: "NEW YORK", start_lat: 40.7128, start_lng: -74.0060, end_name: "LOS ANGELES", end_lat: 34.0522, end_lng: -118.2437, start_date: "2026-04-10", end_date: "2026-04-18", transport_mode: "flight", notes: "跨越东西海岸的追光之旅。从曼哈顿的钢筋水泥飞到加州的落日橘子海，圣莫尼卡海滩的晚风治愈一切。" }
 ];
 
 const DICT: any = {
@@ -37,12 +35,11 @@ const DICT: any = {
     loading: "正在同步地球数据...", brand: "MY TRAVEL\nGLOBE",
     btn_login: "登录账号", btn_logout: "退出登录", btn_add: "记录旅程", btn_share: "生成分享链接",
     drawer_notes: "旅行日记", drawer_date: "行程日期", drawer_memos: "回忆与提示", drawer_edit: "编辑记录", 
-    btn_export: "导出地图", modal_upload_count: "已选照片: ", modal_export_loading: "正在截取高清地图...",
+    btn_export: "导出地图", modal_export_loading: "正在截取高清地图...",
     modal_title: "绘制新轨迹",
     modal_start: "出发地", modal_start_ph: "输入地点以联想搜索...", modal_end: "目的地", modal_end_ph: "输入地点以联想搜索...",
     modal_date_start: "出发日期", modal_date_end: "到达日期",
     modal_trans: "交通方式", trans_flight: "✈️ 飞机", trans_train: "🚄 火车/地铁", trans_drive: "🚗 自驾", trans_cruise: "🚢 游轮", trans_walk: "🚶 步行/骑行",
-    modal_photos: "相册", modal_upload: "📷 点击上传原片 (JPG/PNG)",
     modal_notes: "攻略与避雷", modal_notes_ph: "写点什么... 比如：避雷指南或者扫街路线...",
     modal_cancel: "取消", modal_save: "生成云端轨迹", modal_locating: "正在保存...",
     alert_not_found: "请从下拉列表中准确选择地点！",
@@ -55,18 +52,18 @@ const DICT: any = {
     auth_verify_msg: "✅ 注册成功！请前往邮箱点击验证链接以激活账号。", auth_reset_msg: "✉️ 重置密码链接已发送到您的邮箱，请查收！",
     btn_delete: "删除记录", modal_update: "更新轨迹",
     modal_export_title: "选择要在地图上展示并导出的轨迹", btn_confirm_export: "生成并下载图片",
-    share_success: "🔗 专属地图链接已复制到剪贴板"
+    share_success: "🔗 专属地图链接已复制到剪贴板",
+    passportBtn: "我的旅行护照", passportTitle: "护照印章记录", emptyPassport: "还没有留下任何旅行印记..."
   },
   en: {
     loading: "SYNCING GLOBE DATA...", brand: "MY TRAVEL\nGLOBE",
     btn_login: "LOGIN", btn_logout: "LOGOUT", btn_add: "NEW JOURNEY", btn_share: "SHARE LINK",
     drawer_notes: "TRAVEL NOTES", drawer_date: "DATES", drawer_memos: "MEMORIES & TIPS", drawer_edit: "EDIT RECORD", 
-    btn_export: "EXPORT MAP", modal_upload_count: "Selected: ", modal_export_loading: "Capturing Image...",
+    btn_export: "EXPORT MAP", modal_export_loading: "Capturing Image...",
     modal_title: "NEW TRAJECTORY",
     modal_start: "FROM", modal_start_ph: "Type to search...", modal_end: "TO", modal_end_ph: "Type to search...",
     modal_date_start: "DEPARTURE", modal_date_end: "ARRIVAL",
     modal_trans: "TRANSPORT", trans_flight: "✈️ Flight", trans_train: "🚄 Train", trans_drive: "🚗 Drive", trans_cruise: "🚢 Cruise", trans_walk: "🚶 Walk/Bike",
-    modal_photos: "PHOTOS", modal_upload: "📷 Upload Raw Images (JPG/PNG)",
     modal_notes: "NOTES & TIPS", modal_notes_ph: "Write something... e.g. food to avoid...",
     modal_cancel: "CANCEL", modal_save: "GENERATE ARC", modal_locating: "SAVING...",
     alert_not_found: "Please select accurate locations from dropdown!",
@@ -79,8 +76,49 @@ const DICT: any = {
     auth_verify_msg: "✅ Success! Please check your email to verify your account.", auth_reset_msg: "✉️ Reset password link sent to your email!",
     btn_delete: "DELETE RECORD", modal_update: "UPDATE ARC",
     modal_export_title: "Select Trajectories to Export", btn_confirm_export: "GENERATE & DOWNLOAD",
-    share_success: "🔗 Your exclusive map link copied to clipboard"
+    share_success: "🔗 Your exclusive map link copied to clipboard",
+    passportBtn: "MY TRAVEL PASSPORT", passportTitle: "PASSPORT STAMPS", emptyPassport: "No travel records yet..."
   }
+};
+
+// 定义全球发达城市/枢纽的固定高对比色
+const PREMIUM_HUB_COLORS: Record<string, string> = {
+  "PARIS": "#FF0055",
+  "LONDON": "#00D2FF",
+  "NEW YORK": "#FFD700",
+  "TOKYO": "#7000FF",
+  "SHANGHAI": "#FF4D00",
+  "HONG KONG": "#00FF95",
+  "MILAN": "#FFFFFF",
+  "SINGAPORE": "#FF00FF",
+  "BERLIN": "#39FF14",
+};
+
+// HSL 转 Hex，便于与 boxShadow 的 alpha 拼接
+const hslToHex = (h: number, s: number, l: number) => {
+  s /= 100;
+  l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+  };
+  const r = Math.round(f(0) * 255);
+  const g = Math.round(f(8) * 255);
+  const b = Math.round(f(4) * 255);
+  return `#${[r, g, b].map((x) => x.toString(16).padStart(2, "0")).join("")}`;
+};
+
+// 通过 HSL 动态算色，确保每个城市全球唯一且视觉统一
+const getCityColor = (cityName: string) => {
+  const normalized = cityName.toUpperCase().trim();
+  if (PREMIUM_HUB_COLORS[normalized]) return PREMIUM_HUB_COLORS[normalized];
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i++) {
+    hash = normalized.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash) % 360;
+  return hslToHex(hue, 70, 60);
 };
 
 function LoadingCurtain({ text }: { text: string }) {
@@ -139,10 +177,10 @@ export default function Home() {
   const [endDate, setEndDate] = useState("");
   const [transportMode, setTransportMode] = useState("flight");
   const [newNotes, setNewNotes] = useState("");
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [isPassportModalOpen, setIsPassportModalOpen] = useState(false);
   const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
   const [isGeneratingScreenshot, setIsGeneratingScreenshot] = useState(false);
 
@@ -192,9 +230,11 @@ export default function Home() {
   const uniquePlaces = useMemo(() => {
     const placesMap = new Map();
     visibleTrajectories.forEach(tr => {
-      if (!tr) return; 
-      placesMap.set(tr.start_name, { name: tr.start_name, lat: tr.start_lat, lng: tr.start_lng });
-      placesMap.set(tr.end_name, { name: tr.end_name, lat: tr.end_lat, lng: tr.end_lng });
+      if (!tr) return;
+      const dateObj = new Date(tr.created_at || Date.now());
+      const dateStr = dateObj.toISOString().split("T")[0]; // 2024-12-26
+      placesMap.set(tr.start_name, { name: tr.start_name, lat: tr.start_lat, lng: tr.start_lng, date: dateStr });
+      placesMap.set(tr.end_name, { name: tr.end_name, lat: tr.end_lat, lng: tr.end_lng, date: dateStr });
     });
     return Array.from(placesMap.values());
   }, [visibleTrajectories]);
@@ -285,7 +325,7 @@ export default function Home() {
     setEditingId(null);
     setStartQuery(""); setEndQuery("");
     setSelectedStartCoords(null); setSelectedEndCoords(null);
-    setStartDate(""); setEndDate(""); setNewNotes(""); setSelectedFiles([]);
+    setStartDate(""); setEndDate(""); setNewNotes("");
     setModalOpen(true); 
   };
 
@@ -377,10 +417,6 @@ export default function Home() {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) setSelectedFiles(Array.from(e.target.files));
-  };
-
   const handleSaveTrajectory = async () => {
     setMapError(""); 
     if (!user) { setModalOpen(false); setAuthMode('login'); setAuthModalOpen(true); return; }
@@ -388,19 +424,6 @@ export default function Home() {
     setIsSubmitting(true);
 
     try {
-      let uploadedUrls: string[] = [];
-      if (selectedFiles.length > 0) {
-        for (const file of selectedFiles) {
-          const fileExt = file.name.split('.').pop();
-          const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-          const filePath = `${user.id}/${fileName}`; 
-          const { error: uploadError } = await supabase.storage.from('journey-images').upload(filePath, file);
-          if (uploadError) continue;
-          const { data: publicUrlData } = supabase.storage.from('journey-images').getPublicUrl(filePath);
-          uploadedUrls.push(publicUrlData.publicUrl);
-        }
-      }
-
       const trajectoryData: any = {
         user_id: user?.id, 
         start_name: startQuery.toUpperCase(), start_lat: selectedStartCoords.lat, start_lng: selectedStartCoords.lng,
@@ -408,7 +431,6 @@ export default function Home() {
         start_date: startDate || new Date().toISOString().slice(0, 10), end_date: endDate || new Date().toISOString().slice(0, 10),
         transport_mode: transportMode, notes: newNotes.trim()
       };
-      if (uploadedUrls.length > 0) { trajectoryData.image_urls = uploadedUrls; }
 
       let error;
       if (editingId) {
@@ -432,7 +454,7 @@ export default function Home() {
         setViewState(prev => ({ ...prev, longitude: midLng, latitude: midLat, zoom: zoomAlt, transitionDuration: 2000 }));
         
         setModalOpen(false); setStartQuery(""); setEndQuery(""); setSelectedStartCoords(null); setSelectedEndCoords(null);
-        setStartDate(""); setEndDate(""); setNewNotes(""); setSelectedFiles([]); setEditingId(null);
+        setStartDate(""); setEndDate(""); setNewNotes(""); setEditingId(null);
       } else { setMapError("Database error: " + error.message); }
     } catch (err) { setMapError("Network error, please try again."); } finally { setIsSubmitting(false); }
   };
@@ -602,6 +624,9 @@ export default function Home() {
             <button onClick={() => { setSelectedExportIds(myTrajectories.map(t => t.id)); setExportModalOpen(true); }} className="w-full py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-bold tracking-widest transition-all">
               {t.btn_export}
             </button>
+            <button onClick={() => setIsPassportModalOpen(true)} className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-bold tracking-widest transition-all shadow-[0_4px_15px_rgba(0,0,0,0.5)]">
+              {t.passportBtn}
+            </button>
           </div>
           <div className="p-6 pt-0 border-t border-white/5 flex flex-col justify-end">
             {user ? (
@@ -684,17 +709,6 @@ export default function Home() {
             <h2 className="text-2xl md:text-3xl font-black mb-6 md:mb-8 tracking-wider text-white uppercase leading-tight">
               {selectedTrajectory.start_name} <br/><span className="text-gray-600 text-xl md:text-2xl">→</span> {selectedTrajectory.end_name}
             </h2>
-            
-            {selectedTrajectory.image_urls && selectedTrajectory.image_urls.length > 0 && (
-              <div className="mb-6 grid grid-cols-2 gap-3">
-                {selectedTrajectory.image_urls.map((url: string, idx: number) => (
-                  <div key={idx} className="relative aspect-square w-full rounded-2xl overflow-hidden border border-white/10 group cursor-pointer">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt="Memory" className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500" />
-                  </div>
-                ))}
-              </div>
-            )}
 
             <div className="space-y-6 flex-1">
               <div className="bg-white/[0.03] p-5 md:p-6 rounded-2xl border border-white/5">
@@ -801,21 +815,6 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-mono text-gray-500 mb-2 tracking-wider">{t.modal_photos}</label>
-                  <label htmlFor="photo-upload" className={`w-full bg-white/[0.02] border border-dashed border-white/20 rounded-xl min-h-[4rem] md:min-h-[5rem] p-4 flex flex-col items-center justify-center transition-all ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-white/5 hover:border-yellow-500/50 group'}`}>
-                    <span className={`text-xs font-bold mb-1 ${isSubmitting ? 'text-gray-600' : 'text-gray-400 group-hover:text-yellow-400'}`}>
-                      {selectedFiles.length > 0 ? `${t.modal_upload_count} ${selectedFiles.length}` : t.modal_upload}
-                    </span>
-                    {selectedFiles.length > 0 && (
-                      <span className="text-[10px] text-gray-500 text-center truncate px-4 w-full">
-                        {selectedFiles.map(f => f.name).join(', ')}
-                      </span>
-                    )}
-                  </label>
-                  <input id="photo-upload" type="file" multiple accept="image/*" onChange={handleFileChange} disabled={isSubmitting} className="hidden" />
-                </div>
-
-                <div>
                   <label className="block text-[10px] font-mono text-gray-500 mb-2 tracking-wider">{t.modal_notes}</label>
                   <textarea disabled={isSubmitting} value={newNotes} onChange={(e) => setNewNotes(e.target.value)} placeholder={t.modal_notes_ph} rows={3} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs md:text-sm focus:outline-none focus:border-yellow-500/50 resize-none disabled:opacity-50" />
                 </div>
@@ -863,6 +862,50 @@ export default function Home() {
                  </div>
              </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isPassportModalOpen && (
+          <motion.div initial={{ opacity: 0, backdropFilter: "blur(0px)" }} animate={{ opacity: 1, backdropFilter: "blur(20px)" }} exit={{ opacity: 0, backdropFilter: "blur(0px)" }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 px-4">
+            <div className="relative w-full max-w-4xl max-h-[85vh] bg-[#111] border border-white/10 rounded-2xl shadow-2xl p-8 overflow-y-auto">
+              <button onClick={() => setIsPassportModalOpen(false)} className="absolute top-6 right-6 text-white/50 hover:text-white text-2xl transition-colors">✕</button>
+
+              <div className="text-center mb-10">
+                <h2 className="text-sm text-gray-400 font-mono tracking-[0.3em] uppercase mb-2">My Travel Passport</h2>
+                <p className="text-2xl font-bold text-white tracking-widest">{t.passportTitle}</p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-8 md:gap-12 p-4">
+                {uniquePlaces.map((place: any, i: number) => {
+                  const color = getCityColor(place.name);
+
+                  return (
+                    <div
+                      key={place.name}
+                      className="relative flex flex-col items-center justify-center w-36 h-36 rounded-full border-[2px] bg-[#111] transition-transform hover:scale-105"
+                      style={{
+                        borderColor: color,
+                        color,
+                        boxShadow: `0 0 12px ${color}30`,
+                      }}
+                    >
+                      <span className="text-[10px] font-bold tracking-[0.2em] uppercase opacity-80">ARRIVED</span>
+                      <div className="w-full px-2 text-center">
+                        <span className={`text-xl font-black uppercase leading-tight block truncate ${markerFont.className}`} style={{ textShadow: `0 0 1px ${color}40` }}>
+                          {place.name}
+                        </span>
+                      </div>
+                      <span className="mt-2 text-[10px] font-mono tracking-tighter opacity-80">
+                        {place.date}
+                      </span>
+                      <div className="absolute inset-1 rounded-full border border-dashed opacity-20" style={{ borderColor: color }}></div>
+                    </div>
+                  );
+                })}
+                {uniquePlaces.length === 0 && <p className="text-white/40 text-sm">{t.emptyPassport}</p>}
+              </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
