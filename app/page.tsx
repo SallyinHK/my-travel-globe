@@ -219,8 +219,8 @@ export default function Home() {
 
   useEffect(() => {
     if (user) {
-      setMyTrajectories([]); 
-      supabase.from("trajectories").select("*").then(({ data, error }) => {
+      setMyTrajectories([]);
+      supabase.from("trajectories").select("*").eq("user_id", user.id).then(({ data, error }) => {
         if (error) setMyTrajectories([]);
         else if (data) setMyTrajectories(data.length > 0 ? data : []);
       });
@@ -407,8 +407,8 @@ export default function Home() {
     if (authMode === 'login') {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) { setAuthError(translateSupaError(error.message)); } else {
-        setUser(data.user); setMyTrajectories([]); 
-        const { data: trData } = await supabase.from("trajectories").select("*");
+        setUser(data.user); setMyTrajectories([]);
+        const { data: trData } = await supabase.from("trajectories").select("*").eq("user_id", data.user.id);
         if (trData) setMyTrajectories(trData.length > 0 ? trData : []);
         setAuthModalOpen(false);
       }
@@ -467,7 +467,7 @@ export default function Home() {
 
       let error;
       if (editingId) {
-        const res = await supabase.from("trajectories").update(trajectoryData).eq("id", editingId).select(); error = res.error;
+        const res = await supabase.from("trajectories").update(trajectoryData).eq("id", editingId).eq("user_id", user.id).select(); error = res.error;
         if (!error) {
           if (res.data && res.data.length > 0) { setMyTrajectories((prev) => prev.map(t => t.id === editingId ? res.data[0] : t)); } 
           else { setMyTrajectories((prev) => prev.map(t => t.id === editingId ? { ...t, ...trajectoryData } : t)); }
@@ -493,12 +493,12 @@ export default function Home() {
   };
 
   const handleDeleteTrajectory = async () => {
-    if (!selectedTrajectory || !selectedTrajectory.id) return;
+    if (!user || !selectedTrajectory || !selectedTrajectory.id) return;
     const confirmMsg = lang === 'zh' ? "确定要彻底删除这条轨迹吗？操作不可逆。" : "Are you sure you want to delete this trajectory?";
     if (!window.confirm(confirmMsg)) return;
 
     setIsSubmitting(true);
-    const { error } = await supabase.from("trajectories").delete().eq("id", selectedTrajectory.id);
+    const { error } = await supabase.from("trajectories").delete().eq("id", selectedTrajectory.id).eq("user_id", user.id);
     if (!error) { setMyTrajectories(prev => prev.filter(t => t.id !== selectedTrajectory.id)); setSelectedTrajectory(null); } 
     else { alert("删除失败: " + error.message); }
     setIsSubmitting(false);
@@ -776,16 +776,20 @@ export default function Home() {
         </div>
       </div>
 
-      <motion.div className={`fixed bottom-0 right-0 h-auto max-h-[55vh] md:h-full w-full md:w-[450px] bg-[#050505]/95 backdrop-blur-3xl border-t md:border-l md:border-t-0 border-white/10 p-6 md:p-10 text-white z-40 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] md:shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] rounded-t-[2rem] md:rounded-none ${selectedTrajectory ? "translate-y-0 md:translate-x-0" : "translate-y-full md:translate-y-0 md:translate-x-full"}`}>
+      <motion.div
+        className={`fixed z-40 bg-[#050505]/95 backdrop-blur-3xl text-white border-white/10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] md:shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col bottom-0 right-0 w-full h-auto max-h-[60vh] rounded-t-[2rem] border-t p-6 md:top-0 md:h-screen md:max-h-none md:w-[450px] md:rounded-none md:border-t-0 md:border-l md:p-10 ${selectedTrajectory ? "translate-y-0 md:translate-x-0" : "translate-y-full md:translate-y-0 md:translate-x-full"}`}
+      >
         {selectedTrajectory && (
           <div className="h-full flex flex-col relative overflow-y-auto pr-2 pb-10 scrollbar-hide">
-            <button className="absolute -top-2 md:-top-2 -right-2 md:-right-2 text-gray-500 hover:text-white z-50 bg-[#050505] rounded-full p-2" onClick={() => setSelectedTrajectory(null)}><X size={20} /></button>
+            <button className="absolute top-4 right-4 md:top-6 md:right-6 text-gray-400 hover:text-white z-50 bg-[#050505] hover:bg-white/10 rounded-full p-2 transition-colors" onClick={() => setSelectedTrajectory(null)}>
+              <X size={24} />
+            </button>
             <div className="flex items-center gap-3 mb-4 mt-2 md:mt-4">
               {selectedTrajectory.transport_mode === "flight" ? <Plane size={20} className="text-white/90" /> : selectedTrajectory.transport_mode === "train" ? <Train size={20} className="text-white/90" /> : selectedTrajectory.transport_mode === "drive" ? <Car size={20} className="text-white/90" /> : selectedTrajectory.transport_mode === "cruise" ? <Ship size={20} className="text-white/90" /> : <Footprints size={20} className="text-white/90" />}
               <p className="text-xs font-mono text-yellow-500/70 tracking-widest">{t.drawer_notes}</p>
             </div>
             
-            <h2 className="text-xl md:text-3xl font-black mb-6 md:mb-8 tracking-wider text-white uppercase leading-tight">
+            <h2 className="text-xl md:text-3xl font-black mb-6 md:mb-8 tracking-wider text-white uppercase leading-tight pr-8">
               {selectedTrajectory.start_name} <br/><span className="text-gray-600 text-xl md:text-2xl">→</span> {selectedTrajectory.end_name}
             </h2>
 
