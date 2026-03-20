@@ -4,7 +4,7 @@ import { Inter, Permanent_Marker } from "next/font/google";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@supabase/supabase-js";
-import { Plane, Train, Car, Ship, Footprints, List, Plus, Share2, Camera, Book, LogOut, X } from "lucide-react";
+import { Plane, Train, Car, Ship, Footprints, List, Plus, Share2, Book, LogOut, X } from "lucide-react";
 
 import Map2D from "./components/Map2D";
 // @ts-ignore
@@ -36,7 +36,6 @@ const DICT: any = {
     loading: "正在同步地球数据...", brand: "MY TRAVEL\nGLOBE",
     btn_login: "登录账号", btn_logout: "退出登录", btn_add: "记录旅程", btn_share: "生成分享链接",
     drawer_notes: "旅行日记", drawer_date: "行程日期", drawer_memos: "回忆与提示", drawer_edit: "编辑记录", 
-    btn_export: "导出地图", modal_export_loading: "正在截取高清地图...",
     modal_title: "绘制新轨迹",
     modal_start: "出发地", modal_start_ph: "输入地点以联想搜索...", modal_end: "目的地", modal_end_ph: "输入地点以联想搜索...",
     modal_date_start: "出发日期", modal_date_end: "到达日期",
@@ -52,7 +51,6 @@ const DICT: any = {
     auth_supa_invalid: "❌ 账号或密码错误，请检查后重试！", auth_supa_exists: "❌ 该邮箱已被注册，请直接登录！", auth_supa_too_many: "❌ 请求太频繁，请稍后再试！", auth_supa_unconfirmed: "❌ 邮箱未验证，请前往邮箱点击验证链接！",
     auth_verify_msg: "✅ 注册成功！请前往邮箱点击验证链接以激活账号。", auth_reset_msg: "✉️ 重置密码链接已发送到您的邮箱，请查收！",
     btn_delete: "删除记录", modal_update: "更新轨迹",
-    modal_export_title: "选择要在地图上展示并导出的轨迹", btn_confirm_export: "生成并下载图片",
     share_success: "🔗 专属地图链接已复制到剪贴板",
     passportBtn: "我的旅行护照", passportTitle: "护照印章记录", emptyPassport: "还没有留下任何旅行印记...",
     trips: "次飞行", tripList: "行程列表"
@@ -61,7 +59,6 @@ const DICT: any = {
     loading: "SYNCING GLOBE DATA...", brand: "MY TRAVEL\nGLOBE",
     btn_login: "LOGIN", btn_logout: "LOGOUT", btn_add: "NEW JOURNEY", btn_share: "SHARE LINK",
     drawer_notes: "TRAVEL NOTES", drawer_date: "DATES", drawer_memos: "MEMORIES & TIPS", drawer_edit: "EDIT RECORD", 
-    btn_export: "EXPORT MAP", modal_export_loading: "Capturing Image...",
     modal_title: "NEW TRAJECTORY",
     modal_start: "FROM", modal_start_ph: "Type to search...", modal_end: "TO", modal_end_ph: "Type to search...",
     modal_date_start: "DEPARTURE", modal_date_end: "ARRIVAL",
@@ -77,7 +74,6 @@ const DICT: any = {
     auth_supa_invalid: "❌ Invalid login credentials!", auth_supa_exists: "❌ User already registered, please log in!", auth_supa_too_many: "❌ Too many requests, please try again later!", auth_supa_unconfirmed: "❌ Email not confirmed. Please check your inbox!",
     auth_verify_msg: "✅ Success! Please check your email to verify your account.", auth_reset_msg: "✉️ Reset password link sent to your email!",
     btn_delete: "DELETE RECORD", modal_update: "UPDATE ARC",
-    modal_export_title: "Select Trajectories to Export", btn_confirm_export: "GENERATE & DOWNLOAD",
     share_success: "🔗 Your exclusive map link copied to clipboard",
     passportBtn: "MY TRAVEL PASSPORT", passportTitle: "PASSPORT STAMPS", emptyPassport: "No travel records yet...",
     trips: "TRIPS", tripList: "Trip List"
@@ -127,7 +123,13 @@ const getCityColor = (cityName: string) => {
 function LoadingCurtain({ text }: { text: string }) {
   return (
     <motion.div className="fixed inset-0 z-[100] bg-[#020202] flex flex-col items-center justify-center" initial={{ y: 0 }} exit={{ y: "-100%", transition: { type: "spring", stiffness: 120, damping: 28, mass: 0.8 } }}>
-      <motion.p className={`text-sm text-white/70 font-medium tracking-[0.35em] uppercase ${inter.className}`} animate={{ opacity: [0.35, 1, 0.35] }} transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}>{text}</motion.p>
+      <motion.div className="flex flex-col items-center gap-3 text-center" animate={{ opacity: [0.35, 1, 0.35] }} transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}>
+        <p className={`text-sm text-white/70 font-medium tracking-[0.35em] uppercase ${inter.className}`}>{text}</p>
+        {/* 当检测到当前是中文加载时，下方自动浮现高级感英文 */}
+        {text.includes("同步") && (
+          <p className="text-[10px] text-gray-500 font-mono tracking-[0.4em]">SYNCING GLOBE DATA...</p>
+        )}
+      </motion.div>
     </motion.div>
   );
 }
@@ -182,11 +184,8 @@ export default function Home() {
   const [newNotes, setNewNotes] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [isPassportModalOpen, setIsPassportModalOpen] = useState(false);
   const [mobileListDrawerOpen, setMobileListDrawerOpen] = useState(false);
-  const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
-  const [isGeneratingScreenshot, setIsGeneratingScreenshot] = useState(false);
 
   const [myTrajectories, setMyTrajectories] = useState<any[]>(DEFAULT_TRAJECTORIES);
   const [countriesData, setCountriesData] = useState<any[]>([]);
@@ -229,7 +228,11 @@ export default function Home() {
     }
   }, [user]);
 
-  const visibleTrajectories = isGeneratingScreenshot ? myTrajectories.filter(t => selectedExportIds.includes(t.id)) : myTrajectories;
+  useEffect(() => {
+    if (selectedTrajectory) setMobileListDrawerOpen(false);
+  }, [selectedTrajectory]);
+
+  const visibleTrajectories = myTrajectories;
 
   const uniquePlaces = useMemo(() => {
     const placesMap = new Map<string, { name: string; lat: number; lng: number; date: string; count: number }>();
@@ -411,13 +414,19 @@ export default function Home() {
         const { data: trData } = await supabase.from("trajectories").select("*").eq("user_id", data.user.id);
         if (trData) setMyTrajectories(trData.length > 0 ? trData : []);
         setAuthModalOpen(false);
+        // 新增修复：登录成功后，强制平滑重置 3D 摄像机镜头
+        setViewState(prev => ({ ...prev, longitude: 114.2, latitude: 22.4, zoom: typeof window !== "undefined" && window.innerWidth < 768 ? 2 : 2.5, pitch: 0, bearing: 0, transitionDuration: 1500 }));
       }
     } else if (authMode === 'signup') {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) setAuthError(translateSupaError(error.message));
       else {
         if (data.session === null) { setAuthSuccess(t.auth_verify_msg); setEmail(""); setPassword(""); setAuthAgreed(false); }
-        else setAuthModalOpen(false);
+        else {
+          setAuthModalOpen(false);
+          // 新增修复：注册并自动登录成功后，强制平滑重置 3D 摄像机镜头
+          setViewState(prev => ({ ...prev, longitude: 114.2, latitude: 22.4, zoom: typeof window !== "undefined" && window.innerWidth < 768 ? 2 : 2.5, pitch: 0, bearing: 0, transitionDuration: 1500 }));
+        }
       }
     }
     setIsSubmitting(false);
@@ -504,86 +513,13 @@ export default function Home() {
     setIsSubmitting(false);
   };
 
-  const executeExport = () => {
-    setExportModalOpen(false);
-    setIsGeneratingScreenshot(true);
-    setSelectedTrajectory(null);
-
-    const targetZ = typeof window !== "undefined" && window.innerWidth < 768 ? 0.5 : 1.2;
-    setViewState((prev: any) => ({
-      ...prev,
-      longitude: 10,
-      latitude: 20,
-      zoom: targetZ,
-      minZoom: 0,
-      pitch: 0,
-      bearing: 0,
-      transitionDuration: 1000,
-    }));
-
-    setTimeout(() => {
-      const map = mapRef.current?.getMap();
-      // 增加原生 DOM 抓取作为双保险，防止 ref 透传失败
-      const deckCanvas = (deckRef.current?.deck?.getCanvas() || document.getElementById("deckgl-overlay")) as HTMLCanvasElement;
-      const mapCanvasRaw = document.querySelector(".maplibregl-canvas") as HTMLCanvasElement;
-
-      if (!deckCanvas || (!map && !mapCanvasRaw)) {
-        alert("地图尚未就绪，请稍等几秒后再试");
-        setIsGeneratingScreenshot(false);
-        setViewState((prev: any) => ({ ...prev, minZoom: MIN_ZOOM }));
-        return;
-      }
-
-      let captured = false;
-
-      const performCapture = () => {
-        if (captured) return;
-        captured = true;
-        try {
-          const mapCanvas = map ? map.getCanvas() : mapCanvasRaw;
-          const mergeCanvas = document.createElement("canvas");
-          mergeCanvas.width = mapCanvas.width;
-          mergeCanvas.height = mapCanvas.height;
-          const ctx = mergeCanvas.getContext("2d");
-
-          if (ctx) {
-            ctx.fillStyle = "#0a0a0a";
-            ctx.fillRect(0, 0, mergeCanvas.width, mergeCanvas.height);
-            ctx.drawImage(mapCanvas, 0, 0);
-            ctx.drawImage(deckCanvas, 0, 0);
-
-            const dataUrl = mergeCanvas.toDataURL("image/png");
-            const link = document.createElement("a");
-            link.download = `MyTravelGlobe_Poster_${Date.now()}.png`;
-            link.href = dataUrl;
-            link.click();
-          }
-        } catch (err) {
-          console.error("Capture failed:", err);
-          alert("导出失败，请刷新页面后重试！");
-        } finally {
-          setIsGeneratingScreenshot(false);
-          setViewState((prev: any) => ({ ...prev, minZoom: MIN_ZOOM }));
-        }
-      };
-
-      if (map && map.isStyleLoaded && map.isStyleLoaded()) {
-        map.once("render", performCapture);
-        map.triggerRepaint();
-      } else {
-        performCapture();
-      }
-    }, 1200);
-  };
-
   if (!isMounted) return <div className="min-h-screen bg-[#020202]" />;
 
   return (
-    <main className={`relative h-screen w-screen overflow-hidden bg-[#020202] text-white selection:bg-yellow-500/20 ${inter.className}`}>
+    <main className={`relative h-[100dvh] md:h-screen w-screen overflow-hidden bg-[#020202] text-white selection:bg-yellow-500/20 pt-[env(safe-area-inset-top,0px)] md:pt-0 ${inter.className}`}>
       
       <AnimatePresence mode="wait">
         {!showMainUI && <LoadingCurtain key="init" text={t.loading} />}
-        {isGeneratingScreenshot && <LoadingCurtain key="exporting" text={t.modal_export_loading} />}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -597,7 +533,7 @@ export default function Home() {
       <div className="absolute inset-0 flex flex-col md:flex-row">
         
         <header className="md:hidden absolute top-0 w-full z-20 flex justify-between items-center p-6 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
-           <h1 className={`text-3xl tracking-wide text-white drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)] leading-tight whitespace-pre-line pointer-events-auto ${markerFont.className}`}>{t.brand}</h1>
+           <h1 className={`text-2xl md:text-3xl tracking-wide text-white drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)] leading-tight whitespace-pre-line pointer-events-auto ${markerFont.className}`}>{t.brand}</h1>
            <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="pointer-events-auto text-[10px] font-bold tracking-widest border border-white/30 rounded-md px-2 py-1 hover:bg-white/10 transition-colors bg-black/50 backdrop-blur-md">{lang === 'zh' ? 'EN' : '中'}</button>
         </header>
 
@@ -654,9 +590,6 @@ export default function Home() {
             <button onClick={handleShare} className="w-full py-4 rounded-xl bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 text-yellow-500 text-sm font-bold tracking-widest transition-all">
               {t.btn_share}
             </button>
-            <button onClick={() => { setSelectedExportIds(myTrajectories.map(t => t.id)); setExportModalOpen(true); }} className="w-full py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-bold tracking-widest transition-all">
-              {t.btn_export}
-            </button>
             <button onClick={() => setIsPassportModalOpen(true)} className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-bold tracking-widest transition-all shadow-[0_4px_15px_rgba(0,0,0,0.5)]">
               {t.passportBtn}
             </button>
@@ -678,10 +611,11 @@ export default function Home() {
         </aside>
 
         <div className="md:hidden absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center justify-between gap-6 bg-[#111]/90 backdrop-blur-3xl border border-white/10 rounded-full px-6 py-4 shadow-[0_10px_40px_rgba(0,0,0,0.8)]">
-          <button onClick={() => setMobileListDrawerOpen(true)} className="text-white/70 hover:text-white transition-colors" aria-label={t.tripList}><List size={28} /></button>
+          {!selectedTrajectory && (
+            <button onClick={() => setMobileListDrawerOpen(true)} className="text-white/70 hover:text-white transition-colors" aria-label={t.tripList}><List size={28} /></button>
+          )}
           <button onClick={handleOpenMapModal} className="text-black bg-white p-2 rounded-full hover:scale-105 transition-transform shadow-[0_0_15px_rgba(255,255,255,0.3)]"><Plus size={20} strokeWidth={3} /></button>
           <button onClick={handleShare} className="text-yellow-500 hover:text-yellow-400 transition-colors"><Share2 size={28} /></button>
-          <button onClick={() => { setSelectedExportIds(myTrajectories.map(t => t.id)); setExportModalOpen(true); }} className="text-white/70 hover:text-white transition-colors"><Camera size={22} /></button>
           <button onClick={() => setIsPassportModalOpen(true)} className="text-white/70 hover:text-white transition-colors" aria-label={t.passportBtn}><Book size={28} /></button>
           {user ? (
             <button onClick={handleLogout} className="text-red-400 hover:text-red-300 transition-colors"><LogOut size={28} /></button>
@@ -691,7 +625,7 @@ export default function Home() {
         </div>
 
         <AnimatePresence>
-          {mobileListDrawerOpen && (
+          {mobileListDrawerOpen && !selectedTrajectory && (
             <>
               <motion.div
                 initial={{ opacity: 0 }}
@@ -705,13 +639,13 @@ export default function Home() {
                 animate={{ y: 0 }}
                 exit={{ y: "100%" }}
                 transition={{ type: "tween", duration: 0.25 }}
-                className="md:hidden fixed bottom-0 left-0 right-0 z-[51] max-h-[70vh] rounded-t-2xl border border-white/10 bg-[#0a0a0a] shadow-2xl overflow-hidden"
+                className="md:hidden fixed bottom-0 left-0 right-0 z-[51] max-h-[50vh] rounded-t-2xl border border-white/10 bg-[#0a0a0a] shadow-2xl overflow-hidden"
               >
                 <div className="flex items-center justify-between p-4 border-b border-white/10">
                   <h3 className="text-sm font-black tracking-widest text-white">{t.tripList}</h3>
                   <button onClick={() => setMobileListDrawerOpen(false)} className="text-white/50 hover:text-white p-2"><X size={20} /></button>
                 </div>
-                <ul className="overflow-y-auto p-3 space-y-2 max-h-[60vh]">
+                <ul className="overflow-y-auto p-3 space-y-2 max-h-[50vh]">
                   {visibleTrajectories.length === 0 ? (
                     <li className="text-center text-white/40 text-sm py-6">{lang === "zh" ? "暂无行程" : "No trips yet"}</li>
                   ) : (
@@ -744,13 +678,15 @@ export default function Home() {
           )}
         </AnimatePresence>
 
-        <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-3">
-          <button onClick={() => handleZoom('in')} className="w-10 h-10 bg-white/5 hover:bg-white/20 backdrop-blur-xl rounded-full text-white font-light text-xl border border-white/20 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all">＋</button>
-          <button onClick={() => handleZoom('out')} className="w-10 h-10 bg-white/5 hover:bg-white/20 backdrop-blur-xl rounded-full text-white font-light text-xl border border-white/20 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all">－</button>
-        </div>
+        {!selectedTrajectory && (
+          <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-3">
+            <button onClick={() => handleZoom('in')} className="w-10 h-10 bg-white/5 hover:bg-white/20 backdrop-blur-xl rounded-full text-white font-light text-xl border border-white/20 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all">＋</button>
+            <button onClick={() => handleZoom('out')} className="w-10 h-10 bg-white/5 hover:bg-white/20 backdrop-blur-xl rounded-full text-white font-light text-xl border border-white/20 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all">－</button>
+          </div>
+        )}
 
         <div className="flex-1 relative bg-black">
-          <div className="absolute inset-0 pb-24 md:pb-0">
+        <div className={`absolute top-0 left-0 w-full ${selectedTrajectory ? 'h-[55vh] md:h-full' : 'h-full'} pb-24 md:pb-0`}>
             <Map2D
               lang={lang}
               viewState={viewState}
@@ -777,11 +713,11 @@ export default function Home() {
       </div>
 
       <motion.div
-        className={`fixed z-40 bg-[#050505]/95 backdrop-blur-3xl text-white border-white/10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] md:shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col bottom-0 right-0 w-full h-auto max-h-[60vh] rounded-t-[2rem] border-t p-6 md:top-0 md:h-screen md:max-h-none md:w-[450px] md:rounded-none md:border-t-0 md:border-l md:p-10 ${selectedTrajectory ? "translate-y-0 md:translate-x-0" : "translate-y-full md:translate-y-0 md:translate-x-full"}`}
+        className={`fixed z-[200] bg-[#050505]/95 backdrop-blur-3xl text-white border-white/10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] md:shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0,0,0.2,1)] flex flex-col bottom-0 right-0 w-full h-auto max-h-[50vh] rounded-t-[2rem] border-t p-6 md:top-0 md:h-screen md:max-h-none md:w-[450px] md:rounded-none md:border-t-0 md:border-l md:p-10 ${selectedTrajectory ? "translate-y-0 md:translate-x-0" : "translate-y-full md:translate-y-0 md:translate-x-full"}`}
       >
         {selectedTrajectory && (
           <div className="h-full flex flex-col relative overflow-y-auto pr-2 pb-10 scrollbar-hide">
-            <button className="absolute top-4 right-4 md:top-6 md:right-6 text-gray-400 hover:text-white z-50 bg-[#050505] hover:bg-white/10 rounded-full p-2 transition-colors" onClick={() => setSelectedTrajectory(null)}>
+            <button className="absolute top-4 right-4 md:top-6 md:right-6 text-gray-400 hover:text-white z-[210] bg-[#050505] hover:bg-white/10 rounded-full p-2 transition-colors" onClick={() => setSelectedTrajectory(null)}>
               <X size={24} />
             </button>
             <div className="flex items-center gap-3 mb-4 mt-2 md:mt-4">
@@ -923,36 +859,6 @@ export default function Home() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {exportModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-             <motion.div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setExportModalOpen(false)} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
-             <motion.div className="relative w-full max-w-md rounded-[2rem] border border-white/10 bg-[#0a0a0a] shadow-2xl p-6 md:p-8 text-white max-h-[80vh] overflow-y-auto scrollbar-hide" initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}>
-                 <h3 className="text-lg md:text-xl font-black tracking-widest mb-6">{t.modal_export_title}</h3>
-                 <div className="space-y-2 mb-8">
-                    {myTrajectories.length === 0 || (myTrajectories.length > 0 && myTrajectories[0].id?.startsWith("demo-")) ? (
-                       <p className="text-gray-500 text-sm text-center py-4">暂无专属记录，请先添加行程</p>
-                    ) : (
-                      myTrajectories.map(tr => (
-                         <label key={tr.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10 transition">
-                            <input type="checkbox" checked={selectedExportIds.includes(tr.id)} onChange={(e) => {
-                                if (e.target.checked) setSelectedExportIds(prev => [...prev, tr.id]);
-                                else setSelectedExportIds(prev => prev.filter(id => id !== tr.id));
-                            }} className="accent-yellow-500 w-4 h-4 shrink-0" />
-                            <span className="text-xs md:text-sm font-bold truncate">{tr.start_name} → {tr.end_name}</span>
-                         </label>
-                      ))
-                    )}
-                 </div>
-                 <div className="flex gap-4">
-                    <button onClick={() => setExportModalOpen(false)} className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 hover:text-white font-bold tracking-widest text-xs">{t.modal_cancel}</button>
-                    <button onClick={executeExport} disabled={selectedExportIds.length === 0 || (myTrajectories.length > 0 && myTrajectories[0].id?.startsWith("demo-"))} className="flex-1 py-3 rounded-xl bg-yellow-500 text-black hover:bg-yellow-400 font-bold tracking-widest text-xs disabled:opacity-30">{t.btn_confirm_export}</button>
-                 </div>
-             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
         {isPassportModalOpen && (
           <motion.div initial={{ opacity: 0, backdropFilter: "blur(0px)" }} animate={{ opacity: 1, backdropFilter: "blur(20px)" }} exit={{ opacity: 0, backdropFilter: "blur(0px)" }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 px-4">
             <div className="relative w-full max-w-4xl max-h-[85vh] bg-[#111] border border-white/10 rounded-2xl shadow-2xl p-8 overflow-y-auto">
@@ -1007,8 +913,18 @@ export default function Home() {
       <AnimatePresence>
         {authModalOpen && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 backdrop-blur-2xl bg-black/60">
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-[#0a0a0a] border border-white/10 w-full max-w-sm rounded-[2.5rem] p-8 md:p-10 shadow-2xl relative">
-              <button disabled={isSubmitting} className="absolute top-6 right-6 text-gray-500 hover:text-white disabled:opacity-50" onClick={() => { setAuthModalOpen(false); setAuthSuccess(""); setAuthError(""); }}>✕</button>
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              className="bg-white md:bg-[#0a0a0a] border border-neutral-200 md:border-white/10 w-[90%] mx-auto max-w-sm rounded-[2.5rem] p-6 md:p-10 shadow-2xl relative text-neutral-900 md:text-white"
+            >
+              <button
+                disabled={isSubmitting}
+                className="absolute top-6 right-6 text-neutral-600 hover:text-neutral-900 md:text-gray-500 md:hover:text-white disabled:opacity-50"
+                onClick={() => { setAuthModalOpen(false); setAuthSuccess(""); setAuthError(""); }}
+              >
+                ✕
+              </button>
               
               <h3 className="text-lg md:text-xl font-black tracking-widest mb-8 text-center">
                 {authMode === 'login' ? t.auth_title_login : authMode === 'signup' ? t.auth_title_signup : t.auth_title_reset}
@@ -1017,35 +933,59 @@ export default function Home() {
               {authSuccess ? (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center text-center space-y-6">
                   <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center border border-green-500/20"><span className="text-2xl">📬</span></div>
-                  <p className="text-green-400 text-sm font-bold tracking-widest leading-relaxed">{authSuccess}</p>
-                  <button onClick={() => { setAuthSuccess(""); setAuthMode('login'); }} className="text-gray-400 text-xs underline underline-offset-4 hover:text-white mt-4">返回登录</button>
+                  <p className="text-green-700 md:text-green-400 text-sm font-bold tracking-widest leading-relaxed">{authSuccess}</p>
+                  <button
+                    onClick={() => { setAuthSuccess(""); setAuthMode('login'); }}
+                    className="text-neutral-600 md:text-gray-400 text-xs underline underline-offset-4 hover:text-neutral-900 md:hover:text-white mt-4"
+                  >
+                    返回登录
+                  </button>
                 </motion.div>
               ) : (
                 <>
                   <div className="space-y-5">
                     <div>
-                      <label className="block text-[10px] font-mono text-gray-500 mb-2 tracking-widest">{t.auth_email}</label>
-                      <input disabled={isSubmitting} type="email" value={email} onChange={(e) => { setEmail(e.target.value); setAuthError(""); }} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:border-yellow-500/50 transition-colors disabled:opacity-50" />
+                      <label className="block text-[10px] font-mono text-neutral-700 md:text-gray-500 mb-2 tracking-widest">{t.auth_email}</label>
+                      <input
+                        disabled={isSubmitting}
+                        type="email"
+                        value={email}
+                        onChange={(e) => { setEmail(e.target.value); setAuthError(""); }}
+                        className="w-full bg-neutral-100 md:bg-white/5 border border-neutral-200 md:border-white/10 rounded-xl px-4 py-3.5 text-sm text-neutral-900 md:text-white focus:outline-none focus:border-yellow-500/50 transition-colors disabled:opacity-50"
+                      />
                     </div>
                     
                     {authMode !== 'reset' && (
                       <div>
                         <div className="flex justify-between mb-2">
-                          <label className="block text-[10px] font-mono text-gray-500 tracking-widest">{t.auth_pwd}</label>
+                          <label className="block text-[10px] font-mono text-neutral-700 md:text-gray-500 tracking-widest">{t.auth_pwd}</label>
                           {authMode === 'login' && (
-                            <button onClick={() => { setAuthMode('reset'); setAuthError(""); }} className="text-[10px] text-gray-500 hover:text-white transition-colors tracking-widest underline underline-offset-4 disabled:opacity-50">
+                            <button onClick={() => { setAuthMode('reset'); setAuthError(""); }} className="text-[10px] text-neutral-600 md:text-gray-500 hover:text-neutral-900 md:hover:text-white transition-colors tracking-widest underline underline-offset-4 disabled:opacity-50">
                               {t.auth_switch_reset}
                             </button>
                           )}
                         </div>
-                        <input disabled={isSubmitting} type="password" value={password} onChange={(e) => { setPassword(e.target.value); setAuthError(""); }} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:border-yellow-500/50 transition-colors disabled:opacity-50" />
+                        <input
+                          disabled={isSubmitting}
+                          type="password"
+                          value={password}
+                          onChange={(e) => { setPassword(e.target.value); setAuthError(""); }}
+                          className="w-full bg-neutral-100 md:bg-white/5 border border-neutral-200 md:border-white/10 rounded-xl px-4 py-3.5 text-sm text-neutral-900 md:text-white focus:outline-none focus:border-yellow-500/50 transition-colors disabled:opacity-50"
+                        />
                       </div>
                     )}
 
                     {authMode !== 'reset' && (
                       <div className="flex items-start gap-3 pt-2">
-                        <input disabled={isSubmitting} type="checkbox" id="agreement" checked={authAgreed} onChange={(e) => { setAuthAgreed(e.target.checked); setAuthError(""); }} className="mt-1 w-4 h-4 rounded border-white/20 bg-white/5 checked:bg-yellow-500 checked:border-yellow-500 appearance-none flex items-center justify-center after:content-['✓'] after:text-black after:text-[10px] after:font-bold checked:after:block after:hidden cursor-pointer disabled:opacity-50 shrink-0" />
-                        <label htmlFor="agreement" className="text-[10px] text-gray-500 leading-relaxed cursor-pointer select-none flex-1">
+                        <input
+                          disabled={isSubmitting}
+                          type="checkbox"
+                          id="agreement"
+                          checked={authAgreed}
+                          onChange={(e) => { setAuthAgreed(e.target.checked); setAuthError(""); }}
+                          className="mt-1 w-4 h-4 rounded border-neutral-200 bg-neutral-100 md:border-white/20 md:bg-white/5 checked:bg-yellow-500 checked:border-yellow-500 appearance-none flex items-center justify-center after:content-['✓'] after:text-black after:text-[10px] after:font-bold checked:after:block after:hidden cursor-pointer disabled:opacity-50 shrink-0"
+                        />
+                        <label htmlFor="agreement" className="text-[10px] text-neutral-700 md:text-gray-500 leading-relaxed cursor-pointer select-none flex-1">
                           {t.auth_agree}
                           <span className="text-yellow-500 hover:underline mx-1" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>《用户协议》</span>
                           {lang === 'zh' ? '和' : 'and'}
@@ -1056,20 +996,24 @@ export default function Home() {
                   </div>
                   
                   <AnimatePresence>
-                    {authError && <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-red-400 text-xs font-bold tracking-wider mt-5 text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20">{authError}</motion.p>}
+                    {authError && <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-red-700 md:text-red-400 text-xs font-bold tracking-wider mt-5 text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20">{authError}</motion.p>}
                   </AnimatePresence>
                   
-                  <button disabled={isSubmitting} onClick={handleAuthSubmit} className={`w-full ${authError ? 'mt-4' : 'mt-8'} py-4 rounded-xl text-black transition-all text-xs font-black tracking-widest shadow-[0_0_20px_rgba(255,255,255,0.1)] ${isSubmitting ? 'bg-yellow-600 cursor-not-allowed' : 'bg-white hover:bg-yellow-400'}`}>
+                  <button
+                    disabled={isSubmitting}
+                    onClick={handleAuthSubmit}
+                    className={`w-full ${authError ? 'mt-4' : 'mt-8'} py-4 rounded-xl text-black transition-all text-xs font-black tracking-widest shadow-[0_0_20px_rgba(255,255,255,0.1)] ${isSubmitting ? 'bg-yellow-600 cursor-not-allowed' : 'bg-yellow-400 md:bg-white hover:bg-yellow-400'}`}
+                  >
                     {isSubmitting ? t.loading : (authMode === 'login' ? t.auth_action_login : authMode === 'signup' ? t.auth_action_signup : t.auth_action_reset)}
                   </button>
                   
                   <div className="mt-6 text-center space-y-4 flex flex-col">
                     {authMode === 'reset' ? (
-                       <button disabled={isSubmitting} onClick={() => { setAuthMode('login'); setAuthError(""); }} className="text-[10px] text-gray-500 hover:text-white transition-colors tracking-widest underline underline-offset-4 disabled:opacity-50">
+                      <button disabled={isSubmitting} onClick={() => { setAuthMode('login'); setAuthError(""); }} className="text-[10px] text-neutral-600 md:text-gray-500 hover:text-neutral-900 md:hover:text-white transition-colors tracking-widest underline underline-offset-4 disabled:opacity-50">
                          {t.auth_switch_login}
                        </button>
                     ) : (
-                       <button disabled={isSubmitting} onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setAuthError(""); }} className="text-[10px] text-gray-500 hover:text-white transition-colors tracking-widest underline underline-offset-4 disabled:opacity-50">
+                      <button disabled={isSubmitting} onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setAuthError(""); }} className="text-[10px] text-neutral-600 md:text-gray-500 hover:text-neutral-900 md:hover:text-white transition-colors tracking-widest underline underline-offset-4 disabled:opacity-50">
                          {authMode === 'login' ? t.auth_switch_signup : t.auth_switch_login}
                        </button>
                     )}

@@ -16,6 +16,7 @@ export default function Map2D({
   setSelectedTrajectory,
 }: any) {
   if (!webglDefer) return null;
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   return (
     <DeckGL
@@ -53,7 +54,7 @@ export default function Map2D({
 
         if (layer?.id === "stars-layer" && object.name) {
           return {
-            html: `<div style="background: rgba(0,0,0,0.85); border: 1px solid rgba(255,215,0,0.5); padding: 6px 12px; border-radius: 6px; color: #FFD700; font-size: 12px; font-weight: 900; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(0,0,0,0.8);">${object.name}</div>`,
+            html: `<div style="background: rgba(0,0,0,0.85); border: 1px solid rgba(255,215,0,0.5); padding: ${isMobile ? 5 : 6}px ${isMobile ? 10 : 12}px; border-radius: 6px; color: #FFD700; font-size: ${isMobile ? 10 : 12}px; font-weight: 900; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(0,0,0,0.8);">${object.name}</div>`,
             style: { backgroundColor: "transparent", boxShadow: "none", padding: "0px" },
           };
         }
